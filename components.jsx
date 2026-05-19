@@ -433,7 +433,7 @@ const Toolbar = ({ query, setQuery, mediaFilter, setMediaFilter, topicFilter, se
     <div className="dim" style={{fontSize:10, letterSpacing:"0.12em"}}>{count} HITS</div>
     {adminMode && (
       <button className="chip active" onClick={onAddPost} style={{marginLeft:6}}>
-        <Icon k="plus" /> ADD POST
+        <Icon k="plus" /> NEW POST
       </button>
     )}
   </div>

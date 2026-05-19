@@ -249,8 +249,42 @@ function StatementEditModal({ statement, subjects, defaultSubjectId, onClose, on
   }));
   const [saving, setSaving]   = _useState(false);
   const [err, setErr]         = _useState(null);
+  const [media, setMedia]     = _useState(() => statement?.media || statement?.statement_media || []);
+  const [uploading, setUploading] = _useState(false);
+  const mediaInput = _useRef(null);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  async function handleMediaFile(file) {
+    if (!file) return;
+    if (isNew || !statement?._uuid) {
+      setErr("Save the post first, then attach media.");
+      return;
+    }
+    setUploading(true); setErr(null);
+    try {
+      const kind = (file.type || "").startsWith("video") ? "video" : "image";
+      const row = await window.db.uploadMedia(statement._uuid, file, kind);
+      setMedia(m => [...m, row]);
+      // If this is the first attached image/video, switch media_kind to match.
+      if (form.media_kind === "text") set("media_kind", kind);
+    } catch (e) {
+      setErr(e.message || String(e));
+    } finally {
+      setUploading(false);
+      if (mediaInput.current) mediaInput.current.value = "";
+    }
+  }
+
+  async function handleMediaDelete(m) {
+    if (!confirm("Remove this media file?")) return;
+    try {
+      await window.db.deleteMedia(m);
+      setMedia(arr => arr.filter(x => x.id !== m.id));
+    } catch (e) {
+      setErr(e.message || String(e));
+    }
+  }
 
   async function save() {
     setErr(null); setSaving(true);
@@ -370,9 +404,55 @@ function StatementEditModal({ statement, subjects, defaultSubjectId, onClose, on
               <input type="number" value={form.shares}   onChange={e => set("shares", e.target.value)} />
             </Field>
           </div>
+          {/* MEDIA section: list attached files + upload more */}
+          <div className="edit-field" style={{marginTop:6}}>
+            <span className="edit-label">
+              MEDIA · {media.length} ATTACHED
+              {isNew && <span className="edit-hint" style={{marginLeft:8, textTransform:"none"}}>(save first to attach)</span>}
+            </span>
+            {media.length > 0 && (
+              <div className="edit-media-grid">
+                {media.map(m => (
+                  <div key={m.id} className="edit-media-item">
+                    {m.kind === "image" && m.url
+                      ? <img src={m.url} alt="" />
+                      : <div className="edit-media-placeholder">
+                          [{m.kind.toUpperCase()}]
+                        </div>}
+                    <button
+                      className="edit-media-x"
+                      title="Remove"
+                      onClick={() => handleMediaDelete(m)}
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{display:"flex", gap:6, marginTop:6}}>
+              <button
+                className="chip"
+                disabled={isNew || uploading}
+                onClick={() => mediaInput.current && mediaInput.current.click()}
+                style={{opacity: isNew ? 0.5 : 1}}
+              >
+                {uploading ? "UPLOADING…" : "+ UPLOAD MEDIA"}
+              </button>
+              <span className="edit-hint" style={{alignSelf:"center"}}>
+                Image or video. Stored in `media` bucket.
+              </span>
+            </div>
+            <input
+              ref={mediaInput}
+              type="file"
+              accept="image/*,video/*"
+              style={{display:"none"}}
+              onChange={(e) => handleMediaFile(e.target.files[0])}
+            />
+          </div>
+
           {!isNew && (
             <button className="chip" style={{marginTop:8, color:"var(--red)", borderColor:"var(--red)"}} onClick={destroy}>
-              DELETE STATEMENT
+              DELETE POST
             </button>
           )}
         </div>

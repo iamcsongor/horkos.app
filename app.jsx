@@ -10,6 +10,8 @@ const TWEAKS_DEFAULTS = /*EDITMODE-BEGIN*/{
 }/*EDITMODE-END*/;
 
 // ── Admin gate ─────────────────────────────────────────────────────────
+// Defaults to ON. To opt out: add ?admin=0 to the URL once, or run
+// horkosAdmin.off() in DevTools. The opt-out is sticky in localStorage.
 function useAdminMode() {
   const [admin, setAdmin] = appUseState(() => {
     try {
@@ -19,17 +21,17 @@ function useAdminMode() {
         return true;
       }
       if (params.get("admin") === "0") {
-        localStorage.removeItem("horkos.admin");
+        localStorage.setItem("horkos.admin", "0");
         return false;
       }
-      return localStorage.getItem("horkos.admin") === "1";
-    } catch (e) { return false; }
+      // Default: admin on, unless explicitly turned off.
+      return localStorage.getItem("horkos.admin") !== "0";
+    } catch (e) { return true; }
   });
-  // Helper available from devtools: horkosAdmin.on() / off()
   appUseEffect(() => {
     window.horkosAdmin = {
       on:  () => { localStorage.setItem("horkos.admin", "1"); setAdmin(true);  },
-      off: () => { localStorage.removeItem("horkos.admin");   setAdmin(false); },
+      off: () => { localStorage.setItem("horkos.admin", "0"); setAdmin(false); },
     };
   }, []);
   return admin;
@@ -284,6 +286,15 @@ function App() {
                 <span>HOVER ROW · EXPAND</span>
                 <span>CLICK ICON · POP OUT</span>
                 <span className="amber">{filtered.length}/{posts.length}</span>
+                {adminMode && (
+                  <button
+                    className="chip active"
+                    style={{marginLeft: 4}}
+                    onClick={() => setEditingStatement({ subject_id: activeSubjectId })}
+                  >
+                    + NEW POST
+                  </button>
+                )}
               </div>
             </div>
 

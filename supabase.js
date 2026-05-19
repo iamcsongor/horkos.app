@@ -159,8 +159,26 @@
       kind,
       storage_path: path,
       mime: file.type || null,
+      bytes: file.size,
     }).select().single());
     return { ...data, url: publicUrl(MEDIA_BUCKET, data.storage_path) };
+  }
+
+  async function deleteMedia(media /* row from statement_media */) {
+    // Best-effort: remove the file from storage (ignore failure — row delete
+    // is the source of truth).
+    try {
+      if (media.storage_path) {
+        await sb.storage.from(MEDIA_BUCKET).remove([media.storage_path]);
+      }
+    } catch (e) { /* ignore */ }
+    ok(await sb.from("statement_media").delete().eq("id", media.id));
+  }
+
+  async function listMedia(statementId) {
+    const data = ok(await sb.from("statement_media")
+      .select("*").eq("statement_id", statementId).order("position", { ascending: true }));
+    return data.map(m => ({ ...m, url: publicUrl(MEDIA_BUCKET, m.storage_path) }));
   }
 
   // ── derived views ────────────────────────────────────────────────────
@@ -195,6 +213,8 @@
     upsertStatement,
     deleteStatement,
     uploadMedia,
+    deleteMedia,
+    listMedia,
     getSubjectTotals,
     get30dDelta,
     getActivityDaily,
