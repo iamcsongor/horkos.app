@@ -36,7 +36,23 @@ function useAdminMode() {
 }
 
 function App() {
-  const [tab, setTab] = appUseState("FEED");
+  // HOME by default. `#feed` (or any other tab name) in the URL hash takes
+  // precedence — supports HomePage CTAs that do `location.hash = "feed"`.
+  const tabFromHash = (h) => {
+    const v = (h || "").replace(/^#/, "").toUpperCase();
+    if (!v || v === "HOME") return "HOME";
+    if (["FEED","TIMELINE","ANALYSIS","NETWORK","WATCHLIST"].includes(v)) return v;
+    return "HOME";
+  };
+  const [tab, setTab] = appUseState(() => tabFromHash(location.hash));
+
+  // Keep tab in sync with the URL hash (back-button + deep links).
+  appUseEffect(() => {
+    const onHash = () => setTab(tabFromHash(location.hash));
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
   const [theme, setTheme] = appUseState(() => localStorage.getItem("horkos.theme") || "dark");
   const [tweaks, setTweak] = useTweaks(TWEAKS_DEFAULTS);
   const adminMode = useAdminMode();
@@ -197,6 +213,24 @@ function App() {
       </div>
     );
   }
+
+  const syncTime = activeSubject?.last_sync_at
+    ? new Date(activeSubject.last_sync_at).toISOString().slice(11, 19)
+    : "—";
+
+  // HOME page renders without needing live data — show it even while
+  // subjects are still bootstrapping.
+  if (tab === "HOME") {
+    return (
+      <>
+        <div className="app app-home">
+          <TopBar tab={tab} setTab={setTab} syncTime={syncTime} theme={theme} setTheme={setTheme} adminMode={adminMode} />
+          <HomePage theme={theme} setTheme={setTheme} />
+        </div>
+      </>
+    );
+  }
+
   if (loading && !subjects.length) {
     return (
       <div className="boot-state">
@@ -205,10 +239,6 @@ function App() {
       </div>
     );
   }
-
-  const syncTime = activeSubject?.last_sync_at
-    ? new Date(activeSubject.last_sync_at).toISOString().slice(11, 19)
-    : "—";
 
   return (
     <>

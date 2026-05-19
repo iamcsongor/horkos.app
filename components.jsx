@@ -42,8 +42,18 @@ const TopBar = ({ tab, setTab, syncTime, theme, setTheme, adminMode }) => (
       </div>
     </div>
     <nav>
-      {["FEED", "TIMELINE", "ANALYSIS", "NETWORK", "WATCHLIST"].map(t => (
-        <a key={t} className={tab === t ? "active" : ""} onClick={() => setTab(t)} href="#">{t}</a>
+      {["HOME", "FEED", "TIMELINE", "ANALYSIS", "NETWORK", "WATCHLIST"].map(t => (
+        <a
+          key={t}
+          className={tab === t ? "active" : ""}
+          onClick={(e) => {
+            e.preventDefault();
+            setTab(t);
+            // Sync hash so deep-linking + back-button behave.
+            location.hash = t === "FEED" ? "feed" : t === "HOME" ? "home" : t.toLowerCase();
+          }}
+          href="#"
+        >{t}</a>
       ))}
     </nav>
     <div className="spacer"></div>
