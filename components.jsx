@@ -399,7 +399,7 @@ const StatGrid = ({ delta }) => {
 };
 
 // ── Toolbar ───────────────────────────────────────────────────────────
-const Toolbar = ({ query, setQuery, mediaFilter, setMediaFilter, topicFilter, setTopicFilter, count, topics, adminMode, onAddPost }) => (
+const Toolbar = ({ query, setQuery, mediaFilter, setMediaFilter, topicFilter, setTopicFilter, count, topics }) => (
   <div className="toolbar">
     <div className="search">
       <Icon k="search" />
@@ -431,11 +431,6 @@ const Toolbar = ({ query, setQuery, mediaFilter, setMediaFilter, topicFilter, se
     </div>
     <div className="spacer-h"></div>
     <div className="dim" style={{fontSize:10, letterSpacing:"0.12em"}}>{count} HITS</div>
-    {adminMode && (
-      <button className="chip active" onClick={onAddPost} style={{marginLeft:6}}>
-        <Icon k="plus" /> NEW POST
-      </button>
-    )}
   </div>
 );
 

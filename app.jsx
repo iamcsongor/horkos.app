@@ -273,8 +273,6 @@ function App() {
             topicFilter={topicFilter} setTopicFilter={setTopicFilter}
             count={filtered.length}
             topics={window.HARDCODED.TOPICS}
-            adminMode={adminMode}
-            onAddPost={() => setEditingStatement({ subject_id: activeSubjectId })}
           />
 
           <section className="panel corners" style={{padding: 0}}>
