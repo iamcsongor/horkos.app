@@ -287,7 +287,7 @@ function App() {
               </div>
             </div>
 
-            <div className="row" style={{
+            <div className="row row-header" style={{
               cursor: "default",
               background: "var(--bg-2)",
               fontSize: 9,
