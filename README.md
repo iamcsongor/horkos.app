@@ -108,6 +108,8 @@ Live data (subjects, posts, activity, media) is fetched from Supabase; the rest 
 
 The archive is backed by [Supabase](https://supabase.com) (hosted Postgres + Storage). The publishable key in `config.js` is safe to commit — Postgres row-level security is what protects the data.
 
+**For automation that writes into the archive — including the planned Facebook ingestion pipeline — see [`docs/INTEGRATION.md`](docs/INTEGRATION.md).** It's the canonical reference for the schema, storage layout, authentication, the FB → Horkos field mapping, and a working end-to-end example.
+
 ### One-time setup
 
 1. Create a Supabase project at supabase.com.
