@@ -141,12 +141,6 @@ Please open an issue before starting substantial work so we can coordinate.
 
 ---
 
-## License
-
-The frontend code is released under the MIT license. The archive content is released under CC BY 4.0 — attribution required. Original source content remains the property of its original authors.
-
----
-
 ## Acknowledgements
 
 Built in the open. Inspired by every journalist who has ever tried to keep a screenshot of a deleted tweet.
