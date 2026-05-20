@@ -37,6 +37,28 @@ const CHANNELS = [
   { k: "BR", label: "Broadcast TV",  n: 0,      status: "research", color: "dim" },
 ];
 
+// Sources the archive draws from — the animated marquee in the hero.
+const HERO_SOURCES = [
+  { k: "FB", label: "Facebook",             status: "live"     },
+  { k: "X",  label: "X / Twitter",          status: "beta"     },
+  { k: "YT", label: "YouTube",              status: "queued"   },
+  { k: "TG", label: "Telegram",             status: "queued"   },
+  { k: "IG", label: "Instagram",            status: "queued"   },
+  { k: "TT", label: "TikTok",               status: "queued"   },
+  { k: "PR", label: "Press releases",       status: "queued"   },
+  { k: "IV", label: "Interviews",           status: "research" },
+  { k: "SP", label: "Speeches",             status: "research" },
+  { k: "PA", label: "Parliamentary record", status: "research" },
+  { k: "LX", label: "Court filings",        status: "research" },
+  { k: "TV", label: "Broadcast TV",         status: "research" },
+  { k: "PC", label: "Podcasts",             status: "research" },
+  { k: "OL", label: "Open letters",         status: "research" },
+  { k: "LS", label: "Live streams",         status: "research" },
+  { k: "RD", label: "Radio",                status: "research" },
+  { k: "NL", label: "Newsletters",          status: "research" },
+  { k: "WB", label: "Party websites",       status: "research" },
+];
+
 const RECENT_LOG = [
   { t: "06:42:11", e: "Sync complete", s: "PM-001", c: "+12" },
   { t: "06:41:38", e: "New post indexed", s: "PM-001", c: "FB" },
@@ -122,6 +144,32 @@ function HomeHeatmap() {
   );
 }
 
+// Auto-scrolling SOURCES marquee. The track holds the list twice so the
+// translateY(-50%) loop is seamless; pauses on hover.
+function HomeSources() {
+  const rows = (tag) => HERO_SOURCES.map((s, i) => (
+    <div className="hm-source-row" key={tag + i}>
+      <span className="src-mark">{s.k}</span>
+      <span className="hm-source-lbl">{s.label}</span>
+      <span className={"hm-pill " + s.status}>{s.status}</span>
+    </div>
+  ));
+  return (
+    <div className="hm-sources">
+      <div className="hm-sources-head">
+        <span><span className="amber">▌</span> SOURCES · {HERO_SOURCES.length} TRACKED</span>
+        <span className="dim">● INGESTING</span>
+      </div>
+      <div className="hm-sources-viewport">
+        <div className="hm-sources-track">
+          {rows("a")}
+          {rows("b")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HomePage({ theme, setTheme }) {
   const subjects   = useTicker(11,    0, 9000);
   const statements = useTicker(7_916, 3, 3800);
@@ -183,6 +231,8 @@ function HomePage({ theme, setTheme }) {
               <HomeStat k="CONTRADICTIONS" v={contradictions} sub="open flags" />
               <HomeStat k="COLD STORAGE"  v={coldStorage}     sub="immutable, hashed" />
             </div>
+
+            <HomeSources />
           </div>
         </div>
 
