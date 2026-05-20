@@ -69,6 +69,59 @@ function HomeStat({ k, v, sub, accent }) {
   );
 }
 
+// GitHub-style interactive heatmap for the hero. Synthetic data — hovering a
+// day shows a randomised archived-count (uncapped) for that date.
+function HomeHeatmap() {
+  const WEEKS = 52, DAYS = 7;
+  const grid = React.useMemo(() => {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const out = [];
+    for (let w = 0; w < WEEKS; w++) {
+      const col = [];
+      for (let d = 0; d < DAYS; d++) {
+        const daysBack = (WEEKS - 1 - w) * 7 + (DAYS - 1 - d);
+        const date = new Date(today.getTime() - daysBack * 86400000);
+        const recency = w / WEEKS;                 // recent weeks busier
+        const base = Math.random() * (0.4 + recency * 0.9);
+        const count = Math.round(base * 80);       // uncapped synthetic count
+        col.push({ date, count });
+      }
+      out.push(col);
+    }
+    return out;
+  }, []);
+
+  const [hover, setHover] = useStateH(null);
+  const bucket = (n) => (n <= 0 ? 0 : n < 8 ? 1 : n < 22 ? 2 : n < 45 ? 3 : 4);
+  const fmtDate = (d) =>
+    d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+
+  return (
+    <div className="hm-heatmap">
+      <div className="hm-heatmap-cells">
+        {grid.map((col, w) =>
+          col.map((cell, d) => (
+            <div
+              key={`${w}-${d}`}
+              className={`hm-hcell v${bucket(cell.count)}`}
+              onMouseEnter={() => setHover(cell)}
+              onMouseLeave={() => setHover(null)}
+            />
+          ))
+        )}
+      </div>
+      <div className="hm-heatmap-cap">
+        {hover ? (
+          <span><span className="amber">{hover.count.toLocaleString()}</span> archived · {fmtDate(hover.date)}</span>
+        ) : (
+          <span className="dim">52 WEEKS · HOVER A DAY</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function HomePage({ theme, setTheme }) {
   const subjects   = useTicker(11,    0, 9000);
   const statements = useTicker(7_916, 3, 3800);
@@ -77,11 +130,6 @@ function HomePage({ theme, setTheme }) {
   const lawsuits   = useTicker(38,    0, 7000);
   const contradictions = useTicker(14, 0, 6000);
   const coldStorage = "4.21 TB";
-
-  // tiny synthesized ingest sparkline values
-  const spark = React.useMemo(() => Array.from({length: 48}, (_, i) => {
-    return 8 + Math.round(Math.sin(i / 3.4) * 5 + Math.cos(i / 1.8) * 3 + (Math.random() * 4));
-  }), []);
 
   return (
     <main className="main home">
@@ -124,14 +172,7 @@ function HomePage({ theme, setTheme }) {
               <div className="hm-counter-k">STATEMENTS INDEXED</div>
               <div className="hm-counter-v">{fmtN(statements)}</div>
               <div className="hm-counter-d">↑ +47 / hour · live ingest</div>
-              <svg viewBox="0 0 240 60" width="100%" height="48" style={{display:"block", marginTop:6}}>
-                {spark.map((v, i) => (
-                  <rect key={i} x={i*5} y={50-v} width="3" height={v}
-                        fill={i >= spark.length - 5 ? "var(--amber)" : "var(--bg-3)"}
-                        stroke="var(--line)" />
-                ))}
-                <line x1="0" y1="50" x2="240" y2="50" stroke="var(--line-2)" />
-              </svg>
+              <HomeHeatmap />
             </div>
 
             <div className="hm-counter-grid">
@@ -207,57 +248,6 @@ function HomePage({ theme, setTheme }) {
             </div>
           </div>
         </div>
-      </section>
-
-      {/* ─── CHANNELS + COVERAGE ─────────────────────────────────────── */}
-      <section className="hm-row hm-row-2col">
-        <section className="panel corners">
-          <div className="panel-head">
-            <div className="left"><span className="amber">▌</span> CAPTURE CHANNELS</div>
-            <div className="right"><span>1 LIVE</span><span className="dim">7 QUEUED</span></div>
-          </div>
-          <div className="panel-body hm-channel-grid">
-            {CHANNELS.map(c => (
-              <div key={c.k} className={"hm-channel " + (c.status === "live" ? "active" : "")}>
-                <div className="hm-channel-head">
-                  <span className="src-mark">{c.k}</span>
-                  <span className="hm-channel-lbl">{c.label}</span>
-                  <span className={"hm-pill " + c.status}>{c.status.toUpperCase()}</span>
-                </div>
-                <div className="hm-channel-n">{c.n ? fmtN(c.n) : "—"}</div>
-                <div className="hm-channel-d dim">{c.n ? "records" : "not yet captured"}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel corners">
-          <div className="panel-head">
-            <div className="left"><span className="amber">▌</span> COUNTRY COVERAGE</div>
-            <div className="right"><span>{countries} ACTIVE</span><span className="dim">10 MAPPED</span></div>
-          </div>
-          <div className="panel-body hm-country-list">
-            {COUNTRIES.map(c => (
-              <div key={c.code} className="hm-country">
-                <div className="hm-country-code">{c.code}</div>
-                <div className="hm-country-name">{c.name}</div>
-                <div className="hm-country-bar">
-                  <div className="track">
-                    <div className={"fill " + (c.status === "active" ? "" : c.status === "queued" ? "cyan" : "red")}
-                         style={{width: `${Math.min(100, c.posts / 60)}%`}}></div>
-                  </div>
-                </div>
-                <div className="hm-country-n mono">{c.subjects || "—"}</div>
-                <div className={"hm-pill " + c.status}>{c.status}</div>
-              </div>
-            ))}
-            <div className="hm-country hm-country-add">
-              <div className="hm-country-code dim2">+</div>
-              <div className="hm-country-name dim">Nominate a country</div>
-              <div className="dim" style={{gridColumn:"3 / -1", textAlign:"right"}}>Open an issue →</div>
-            </div>
-          </div>
-        </section>
       </section>
 
       {/* ─── PIPELINE / HOW IT WORKS ─────────────────────────────────── */}
@@ -348,6 +338,57 @@ function HomePage({ theme, setTheme }) {
             <p className="hm-p hm-sign">
               <span className="amber">— THE OATH-KEEPERS</span>, in perpetuity.
             </p>
+          </div>
+        </section>
+      </section>
+
+      {/* ─── CHANNELS + COVERAGE ─────────────────────────────────────── */}
+      <section className="hm-row hm-row-2col">
+        <section className="panel corners">
+          <div className="panel-head">
+            <div className="left"><span className="amber">▌</span> CAPTURE CHANNELS</div>
+            <div className="right"><span>1 LIVE</span><span className="dim">7 QUEUED</span></div>
+          </div>
+          <div className="panel-body hm-channel-grid">
+            {CHANNELS.map(c => (
+              <div key={c.k} className={"hm-channel " + (c.status === "live" ? "active" : "")}>
+                <div className="hm-channel-head">
+                  <span className="src-mark">{c.k}</span>
+                  <span className="hm-channel-lbl">{c.label}</span>
+                  <span className={"hm-pill " + c.status}>{c.status.toUpperCase()}</span>
+                </div>
+                <div className="hm-channel-n">{c.n ? fmtN(c.n) : "—"}</div>
+                <div className="hm-channel-d dim">{c.n ? "records" : "not yet captured"}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel corners">
+          <div className="panel-head">
+            <div className="left"><span className="amber">▌</span> COUNTRY COVERAGE</div>
+            <div className="right"><span>{countries} ACTIVE</span><span className="dim">10 MAPPED</span></div>
+          </div>
+          <div className="panel-body hm-country-list">
+            {COUNTRIES.map(c => (
+              <div key={c.code} className="hm-country">
+                <div className="hm-country-code">{c.code}</div>
+                <div className="hm-country-name">{c.name}</div>
+                <div className="hm-country-bar">
+                  <div className="track">
+                    <div className={"fill " + (c.status === "active" ? "" : c.status === "queued" ? "cyan" : "red")}
+                         style={{width: `${Math.min(100, c.posts / 60)}%`}}></div>
+                  </div>
+                </div>
+                <div className="hm-country-n mono">{c.subjects || "—"}</div>
+                <div className={"hm-pill " + c.status}>{c.status}</div>
+              </div>
+            ))}
+            <div className="hm-country hm-country-add">
+              <div className="hm-country-code dim2">+</div>
+              <div className="hm-country-name dim">Nominate a country</div>
+              <div className="dim" style={{gridColumn:"3 / -1", textAlign:"right"}}>Open an issue →</div>
+            </div>
           </div>
         </section>
       </section>

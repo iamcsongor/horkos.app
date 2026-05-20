@@ -1792,3 +1792,36 @@ a.social-row:hover .social-label { text-decoration: underline; }
   }
   .edit-socials-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Home hero · GitHub-style interactive heatmap ───────────────────── */
+.hm-heatmap { margin-top: 10px; }
+.hm-heatmap-cells {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 1fr);
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
+.hm-hcell {
+  width: 9px; height: 9px;
+  border-radius: 1px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: outline-color 0.1s ease;
+}
+.hm-hcell.v1 { background: oklch(0.62 0.14 75 / 0.20); border-color: oklch(0.62 0.14 75 / 0.30); }
+.hm-hcell.v2 { background: oklch(0.62 0.14 75 / 0.40); border-color: oklch(0.62 0.14 75 / 0.50); }
+.hm-hcell.v3 { background: oklch(0.72 0.16 75 / 0.70); border-color: oklch(0.72 0.16 75 / 0.80); }
+.hm-hcell.v4 { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 6px oklch(0.82 0.16 75 / 0.5); }
+.hm-hcell:hover { outline: 1px solid var(--fg); }
+.hm-heatmap-cap {
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--fg-2);
+  min-height: 14px;
+}
