@@ -70,4 +70,14 @@ window.HARDCODED = {
     "∴ media mentions",
     "∴ contradictions log",
   ],
+
+  // Per-subject channel links shown in the dossier and editable in the
+  // subject modal. `key` is the property under subjects.socials (jsonb).
+  SUBJECT_CHANNELS: [
+    { key: "facebook", label: "FACEBOOK", badge: "FB" },
+    { key: "youtube",  label: "YOUTUBE",  badge: "YT" },
+    { key: "telegram", label: "TELEGRAM", badge: "TG" },
+    { key: "press",    label: "PRESS",    badge: "PR" },
+    { key: "lawsuits", label: "LAWSUITS", badge: "LX" },
+  ],
 };

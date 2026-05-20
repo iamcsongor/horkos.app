@@ -241,6 +241,34 @@ const SubjectCard = ({ subject, totals, adminMode, onEdit, onPortraitUpload }) =
             </div>
           </div>
         </div>
+
+        <div className="socials">
+          <div className="lbl">CHANNELS</div>
+          {window.HARDCODED.SUBJECT_CHANNELS.map(c => {
+            const url = (subject.socials || {})[c.key];
+            const linked = !!(url && String(url).trim());
+            return linked ? (
+              <a
+                key={c.key}
+                className="social-row"
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                title={url}
+              >
+                <span className="src-mark">{c.badge}</span>
+                <span className="social-label">{c.label}</span>
+                <Icon k="link" />
+              </a>
+            ) : (
+              <div key={c.key} className="social-row empty" title="Not linked">
+                <span className="src-mark">{c.badge}</span>
+                <span className="social-label">{c.label}</span>
+                <span className="social-dash">—</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

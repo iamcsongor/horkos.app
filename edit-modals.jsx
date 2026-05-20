@@ -85,12 +85,14 @@ function SubjectEditModal({ subject, onClose, onSaved }) {
     total_lawsuits:    subject?.total_lawsuits ?? 0,
     portrait_path:     subject?.portrait_path || "",
     portrait_is_url:   subject?.portrait_is_url ?? false,
+    socials:           { ...(subject?.socials || {}) },
   }));
   const [saving, setSaving] = _useState(false);
   const [err, setErr] = _useState(null);
   const fileInput = _useRef(null);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const setSocial = (k, v) => setForm(f => ({ ...f, socials: { ...f.socials, [k]: v } }));
 
   async function handlePortraitFile(file) {
     if (!file) return;
@@ -112,9 +114,16 @@ function SubjectEditModal({ subject, onClose, onSaved }) {
   async function save() {
     setErr(null); setSaving(true);
     try {
+      // Normalize socials: trim, drop empty entries.
+      const socials = {};
+      Object.entries(form.socials || {}).forEach(([k, v]) => {
+        const t = (v || "").trim();
+        if (t) socials[k] = t;
+      });
       const payload = {
         ...subject,                        // keep id when editing
         ...form,
+        socials,
         followers:         form.followers === "" ? null : Number(form.followers),
         watchlist_rank:    form.watchlist_rank === "" ? null : Number(form.watchlist_rank),
         archive_integrity: Number(form.archive_integrity),
@@ -221,6 +230,22 @@ function SubjectEditModal({ subject, onClose, onSaved }) {
           <Field label="LAWSUITS" hint="Manual counter">
             <input type="number" value={form.total_lawsuits} onChange={e => set("total_lawsuits", e.target.value)} />
           </Field>
+        </div>
+      </div>
+
+      {/* CHANNELS · subject socials */}
+      <div style={{marginTop: 20, borderTop: "1px solid var(--line)", paddingTop: 16}}>
+        <div className="edit-label" style={{marginBottom: 10}}>CHANNELS · SUBJECT SOCIALS</div>
+        <div className="edit-socials-grid">
+          {window.HARDCODED.SUBJECT_CHANNELS.map(c => (
+            <Field key={c.key} label={c.label} hint="Full URL · leave blank to gray out">
+              <input
+                value={form.socials[c.key] || ""}
+                placeholder="https://…"
+                onChange={e => setSocial(c.key, e.target.value)}
+              />
+            </Field>
+          ))}
         </div>
       </div>
     </ModalFrame>
