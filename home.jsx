@@ -144,12 +144,36 @@ function HomeHeatmap() {
   );
 }
 
-// Auto-scrolling SOURCES marquee. The track holds the list twice so the
-// translateY(-50%) loop is seamless; pauses on hover.
+// Custom line-art icons for each source. Stroke-based, currentColor, matching
+// the page's geometric icon style (viewBox 0 0 24 24). No brand logos.
+const _ic = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" };
+const SRC_ICON = {
+  FB: <svg {..._ic}><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M14.2 8h-1.4c-1 0-1.6.7-1.6 1.7V11H9.2v2.3H11V21h2.4v-7.7h1.9l.4-2.3h-2.3V9.9c0-.4.2-.6.7-.6h1.1z"/></svg>,
+  X:  <svg {..._ic}><path d="M4 4l16 16M20 4L4 20"/></svg>,
+  YT: <svg {..._ic}><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M11 9.5l4 2.5-4 2.5z" fill="currentColor"/></svg>,
+  TG: <svg {..._ic}><path d="M21 4L3 11l5.5 1.8L11 19l2.8-3.6L18 18z"/><path d="M8.5 12.8L17 7"/></svg>,
+  IG: <svg {..._ic}><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"/></svg>,
+  TT: <svg {..._ic}><path d="M9.5 16.5a3 3 0 1 0 3 3V8.2c1 1.4 2.6 2 4.2 2V7.3c-1.5 0-3-1.3-3-3.3h-3.1z"/></svg>,
+  PR: <svg {..._ic}><rect x="3" y="5" width="13" height="14" rx="1"/><path d="M16 8h4v9a2 2 0 0 1-2 2H6"/><path d="M6 9h7M6 12h7M6 15h5"/></svg>,
+  IV: <svg {..._ic}><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0"/><path d="M12 17v4M9 21h6"/></svg>,
+  SP: <svg {..._ic}><path d="M3 11v2l11 5V6z"/><path d="M14 8.5a3.5 3.5 0 0 1 0 7"/><path d="M6 13.2V17l3 1v-3.8"/></svg>,
+  PA: <svg {..._ic}><path d="M3 9l9-5 9 5"/><path d="M5 9v8M9.5 9v8M14.5 9v8M19 9v8"/><path d="M3 20.5h18"/></svg>,
+  LX: <svg {..._ic}><path d="M14 4l6 6-2.5 2.5-6-6z"/><path d="M11.5 6.5L4 14l3 3 7.5-7.5"/><path d="M3 21h9"/></svg>,
+  TV: <svg {..._ic}><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 4l4 3 4-3"/></svg>,
+  PC: <svg {..._ic}><path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/></svg>,
+  OL: <svg {..._ic}><path d="M3 9l9-5 9 5v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 9l9 6 9-6"/></svg>,
+  LS: <svg {..._ic}><circle cx="12" cy="12" r="2.4"/><path d="M7.5 7.5a6.5 6.5 0 0 0 0 9M16.5 7.5a6.5 6.5 0 0 1 0 9"/><path d="M4.5 4.5a11 11 0 0 0 0 15M19.5 4.5a11 11 0 0 1 0 15"/></svg>,
+  RD: <svg {..._ic}><rect x="3" y="9" width="18" height="11" rx="2"/><path d="M7 9l11-4.5"/><circle cx="8" cy="14.5" r="2"/><path d="M14 13h4M14 16.5h4"/></svg>,
+  NL: <svg {..._ic}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>,
+  WB: <svg {..._ic}><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 2.4 4 5.6 4 9s-1.4 6.6-4 9c-2.6-2.4-4-5.6-4-9s1.4-6.6 4-9z"/></svg>,
+};
+
+// Auto-scrolling horizontal SOURCES marquee. The track holds the list twice so
+// the translateX(-50%) loop is seamless; pauses on hover.
 function HomeSources() {
-  const rows = (tag) => HERO_SOURCES.map((s, i) => (
-    <div className="hm-source-row" key={tag + i}>
-      <span className="src-mark">{s.k}</span>
+  const tiles = (tag) => HERO_SOURCES.map((s, i) => (
+    <div className="hm-source-tile" key={tag + i} title={s.label}>
+      <span className="hm-source-ico">{SRC_ICON[s.k]}</span>
       <span className="hm-source-lbl">{s.label}</span>
       <span className={"hm-pill " + s.status}>{s.status}</span>
     </div>
@@ -162,8 +186,8 @@ function HomeSources() {
       </div>
       <div className="hm-sources-viewport">
         <div className="hm-sources-track">
-          {rows("a")}
-          {rows("b")}
+          {tiles("a")}
+          {tiles("b")}
         </div>
       </div>
     </div>
