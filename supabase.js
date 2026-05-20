@@ -54,9 +54,21 @@
     };
   }
 
+  // Only these are real columns on `subjects`. Everything else on the
+  // in-memory object (portrait_url, total_posts/videos/images from the
+  // subject_totals view, etc.) must NOT be sent to PostgREST.
+  const SUBJECT_COLUMNS = [
+    "id", "code", "name", "codename", "role", "district", "country",
+    "born", "followers", "indexed_since", "last_sync_at", "watchlist_rank",
+    "archive_integrity", "portrait_path", "portrait_is_url", "total_lawsuits",
+    "socials", "created_by",
+  ];
+
   async function upsertSubject(payload) {
-    const row = { ...payload };
-    delete row.portrait_url; // computed; never write back
+    const row = {};
+    for (const k of SUBJECT_COLUMNS) {
+      if (payload[k] !== undefined) row[k] = payload[k];
+    }
     const data = ok(await sb.from("subjects").upsert(row).select().single());
     return decorateSubject(data);
   }
