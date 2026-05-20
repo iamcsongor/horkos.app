@@ -168,11 +168,11 @@ const SRC_ICON = {
   WB: <svg {..._ic}><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 2.4 4 5.6 4 9s-1.4 6.6-4 9c-2.6-2.4-4-5.6-4-9s1.4-6.6 4-9z"/></svg>,
 };
 
-// Auto-scrolling horizontal SOURCES marquee. The track holds the list twice so
-// the translateX(-50%) loop is seamless; pauses on hover.
+// Vertical SOURCES running list. The track holds the list twice so the
+// translateY(-50%) loop is seamless; pauses on hover.
 function HomeSources() {
-  const tiles = (tag) => HERO_SOURCES.map((s, i) => (
-    <div className="hm-source-tile" key={tag + i} title={s.label}>
+  const rows = (tag) => HERO_SOURCES.map((s, i) => (
+    <div className="hm-source-row" key={tag + i} title={s.label}>
       <span className="hm-source-ico">{SRC_ICON[s.k]}</span>
       <span className="hm-source-lbl">{s.label}</span>
       <span className={"hm-pill " + s.status}>{s.status}</span>
@@ -186,8 +186,8 @@ function HomeSources() {
       </div>
       <div className="hm-sources-viewport">
         <div className="hm-sources-track">
-          {tiles("a")}
-          {tiles("b")}
+          {rows("a")}
+          {rows("b")}
         </div>
       </div>
     </div>
