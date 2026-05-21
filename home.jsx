@@ -39,24 +39,24 @@ const CHANNELS = [
 
 // Sources the archive draws from — the animated marquee in the hero.
 const HERO_SOURCES = [
-  { k: "FB", label: "Facebook",             status: "live"     },
-  { k: "X",  label: "X / Twitter",          status: "beta"     },
-  { k: "YT", label: "YouTube",              status: "queued"   },
-  { k: "TG", label: "Telegram",             status: "queued"   },
-  { k: "IG", label: "Instagram",            status: "queued"   },
-  { k: "TT", label: "TikTok",               status: "queued"   },
-  { k: "PR", label: "Press releases",       status: "queued"   },
-  { k: "IV", label: "Interviews",           status: "research" },
-  { k: "SP", label: "Speeches",             status: "research" },
-  { k: "PA", label: "Parliamentary record", status: "research" },
-  { k: "LX", label: "Court filings",        status: "research" },
-  { k: "TV", label: "Broadcast TV",         status: "research" },
-  { k: "PC", label: "Podcasts",             status: "research" },
-  { k: "OL", label: "Open letters",         status: "research" },
-  { k: "LS", label: "Live streams",         status: "research" },
-  { k: "RD", label: "Radio",                status: "research" },
-  { k: "NL", label: "Newsletters",          status: "research" },
-  { k: "WB", label: "Party websites",       status: "research" },
+  { k: "FB", label: "Facebook",             status: "live",     blurb: "Every post archived in full — edits and comments included" },
+  { k: "X",  label: "X / Twitter",          status: "beta",     blurb: "Every tweet and reply preserved before it can be deleted" },
+  { k: "YT", label: "YouTube",              status: "queued",   blurb: "Every video, title and description mirrored for the record" },
+  { k: "TG", label: "Telegram",             status: "queued",   blurb: "Every channel broadcast logged as it is sent" },
+  { k: "IG", label: "Instagram",            status: "queued",   blurb: "Every post and story captured before it expires" },
+  { k: "TT", label: "TikTok",               status: "queued",   blurb: "Every clip and caption archived in full" },
+  { k: "PR", label: "Press releases",       status: "queued",   blurb: "Every official statement filed verbatim" },
+  { k: "IV", label: "Interviews",           status: "research", blurb: "Every interview transcribed and time-stamped" },
+  { k: "SP", label: "Speeches",             status: "research", blurb: "Every speech recorded word for word" },
+  { k: "PA", label: "Parliamentary record", status: "research", blurb: "Every vote and floor statement kept on file" },
+  { k: "LX", label: "Court filings",        status: "research", blurb: "Every filing and ruling preserved as evidence" },
+  { k: "TV", label: "Broadcast TV",         status: "research", blurb: "Every appearance clipped, dated and stored" },
+  { k: "PC", label: "Podcasts",             status: "research", blurb: "Every episode transcribed and indexed" },
+  { k: "OL", label: "Open letters",         status: "research", blurb: "Every signed letter retained in full" },
+  { k: "LS", label: "Live streams",         status: "research", blurb: "Every stream captured as it airs" },
+  { k: "RD", label: "Radio",                status: "research", blurb: "Every segment recorded and time-stamped" },
+  { k: "NL", label: "Newsletters",          status: "research", blurb: "Every issue archived the moment it is sent" },
+  { k: "WB", label: "Party websites",       status: "research", blurb: "Every page snapshotted and version-tracked" },
 ];
 
 const RECENT_LOG = [
@@ -172,9 +172,12 @@ const SRC_ICON = {
 // translateY(-50%) loop is seamless; pauses on hover.
 function HomeSources() {
   const rows = (tag) => HERO_SOURCES.map((s, i) => (
-    <div className="hm-source-row" key={tag + i} title={s.label}>
+    <div className="hm-source-row" key={tag + i} title={s.blurb}>
       <span className="hm-source-ico">{SRC_ICON[s.k]}</span>
-      <span className="hm-source-lbl">{s.label}</span>
+      <span className="hm-source-text">
+        <span className="hm-source-lbl">{s.label}</span>
+        <span className="hm-source-sub">{s.blurb}</span>
+      </span>
       <span className={"hm-pill " + s.status}>{s.status}</span>
     </div>
   ));
