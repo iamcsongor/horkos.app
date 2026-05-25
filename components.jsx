@@ -387,23 +387,26 @@ const Heatmap = ({ daily, dateFilter, sourceFilter, onFilterChange }) => {
   // Stable order for the legend.
   const legendCodes = SOURCE_CODES.filter(c => sourcesInData.has(c));
 
-  // Per-week aggregate used by the BAR view — same shape as cell.entry
-  // so the popover can render either day-level or week-level data with
-  // one component.
-  const weeklyData = useMemo(() => grid.map((week, wi) => {
-    const bySource = {};
-    let total = 0;
-    week.forEach(c => {
-      Object.entries(c.entry.bySource).forEach(([code, n]) => {
-        bySource[code] = (bySource[code] || 0) + n;
-        total += n;
-      });
-    });
-    return { wi, startKey: week[0]?.key, endKey: week[week.length - 1]?.key, entry: { total, bySource } };
-  }), [grid]);
-  const maxWeekTotal = useMemo(
-    () => Math.max(1, ...weeklyData.map(w => w.entry.total)),
-    [weeklyData]
+  // 30 most-recent days for the BAR view — daily granularity reads
+  // much better than weekly for sparse archives (1–3 fat bars instead
+  // of one solitary pixel at the right edge of 52 weeks). The 52-week
+  // at-a-glance view is what the HEAT toggle is for.
+  const BAR_DAYS = 30;
+  const dailyData = useMemo(() => {
+    const today = new Date();
+    today.setUTCHours(0,0,0,0);
+    const out = [];
+    for (let i = BAR_DAYS - 1; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 86400000);
+      const key = d.toISOString().slice(0, 10);
+      const entry = dayMap.get(key) || { total: 0, bySource: {} };
+      out.push({ key, entry, date: d });
+    }
+    return out;
+  }, [dayMap]);
+  const maxDayTotal = useMemo(
+    () => Math.max(1, ...dailyData.map(d => d.entry.total)),
+    [dailyData]
   );
 
   // Hover handlers — we anchor the popover to the hovered element in
@@ -423,21 +426,18 @@ const Heatmap = ({ daily, dateFilter, sourceFilter, onFilterChange }) => {
     });
   };
 
-  const onBarEnter = (e, week) => {
+  const onBarEnter = (e, day) => {
     cancelHoverDismiss();
     const r = e.currentTarget.getBoundingClientRect();
-    // "WK 22 · 19–25 MAY"
-    const fmt = (k) => {
-      const d = new Date(k + "T00:00:00Z");
-      return `${d.getUTCDate()} ${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getUTCMonth()]}`;
-    };
-    const label = `WK ${week.wi + 1} · ${fmt(week.startKey)}–${fmt(week.endKey)}`;
+    // Same label format as the heatmap cell hover so the two views
+    // feel like one component.
+    const label = day.date.toUTCString().slice(0, 16);
     setHover({
-      key: week.endKey,
-      entry: week.entry,
+      key: day.key,
+      entry: day.entry,
       anchor: { left: r.left + r.width / 2, top: r.top },
       label,
-      isWeek: true,
+      isWeek: false,
     });
   };
 
@@ -619,13 +619,15 @@ const Heatmap = ({ daily, dateFilter, sourceFilter, onFilterChange }) => {
             {popover}
           </div>
         ) : (
-          // ── Stacked weekly bar chart ──────────────────────────────────
-          // Each bar = 1 of the last 52 weeks. Segments inside the bar
-          // are per-source (FB / X / YT / …) sized by that source's
-          // share of the week's posts. Bar height = total posts that
-          // week, normalised against the busiest week. Hovering shares
-          // the heatmap's popover; clicking a colored segment isolates
-          // that source in the feed.
+          // ── Stacked daily bar chart · last 30 days ────────────────────
+          // One bar per day. Segments inside the bar are per-source
+          // (FB / X / YT / …) sized by that source's share of the day's
+          // posts. Bar height = posts that day, normalised against the
+          // busiest day in the window. Hover shares the heatmap's
+          // popover; click a colored segment to filter to day + source,
+          // click the bar body to filter to that day only. Same as the
+          // heatmap cells, just zoomed in to the recent window where
+          // sparse activity is still legible.
           <div className="hm-bars-wrap">
             {/* Source legend — same component as in the heatmap view so
                 the user has a single mental model for coloring + filter. */}
@@ -663,43 +665,48 @@ const Heatmap = ({ daily, dateFilter, sourceFilter, onFilterChange }) => {
             )}
 
             <div className="hm-bars-chart">
-              {/* Y axis · just the peak value, anchored to top-left */}
+              {/* Y axis · peak / half / 0 */}
               <div className="hm-bars-yaxis">
-                <span className="hm-bars-y-top">{maxWeekTotal}</span>
-                <span className="hm-bars-y-mid dim">{Math.round(maxWeekTotal / 2)}</span>
+                <span className="hm-bars-y-top">{maxDayTotal}</span>
+                <span className="hm-bars-y-mid dim">{Math.round(maxDayTotal / 2)}</span>
                 <span className="hm-bars-y-bot">0</span>
               </div>
 
-              {/* The bars themselves · one per week, full panel width */}
+              {/* The bars themselves · one per day, full panel width */}
               <div className="hm-bars">
-                {/* horizontal gridlines for legibility */}
                 <div className="hm-bars-grid">
                   <div /><div /><div /><div />
                 </div>
-                {weeklyData.map((w) => {
-                  // sources present in this week, ordered by SOURCE_CODES
-                  const codes = SOURCE_CODES.filter(c => (w.entry.bySource[c] || 0) > 0);
-                  // when a source filter is active, only that source's
-                  // segment contributes to bar height — matches the
-                  // heatmap's "isolate" behaviour
+                {dailyData.map((d, di) => {
+                  const codes = SOURCE_CODES.filter(c => (d.entry.bySource[c] || 0) > 0);
+                  // When a source filter is active, only that source's
+                  // contribution drives bar height (matches the heatmap's
+                  // "isolate" behaviour).
                   const effectiveTotal = sourceFilter
-                    ? (w.entry.bySource[sourceFilter] || 0)
-                    : w.entry.total;
-                  const stackH = (effectiveTotal / maxWeekTotal) * 100;
+                    ? (d.entry.bySource[sourceFilter] || 0)
+                    : d.entry.total;
+                  const stackH = (effectiveTotal / maxDayTotal) * 100;
                   const renderCodes = sourceFilter ? [sourceFilter] : codes;
+                  const isActiveDay = dateFilter === d.key;
                   return (
                     <button
-                      key={w.wi}
+                      key={d.key}
                       type="button"
-                      className={`hm-bar ${effectiveTotal === 0 ? "is-empty" : ""}`}
-                      onMouseEnter={(e) => onBarEnter(e, w)}
+                      className={`hm-bar ${effectiveTotal === 0 ? "is-empty" : ""}${isActiveDay ? " is-active" : ""}`}
+                      onMouseEnter={(e) => onBarEnter(e, d)}
                       onMouseLeave={scheduleHoverDismiss}
-                      onClick={() => setHover(null)}
-                      aria-label={`Week ${w.wi + 1}: ${effectiveTotal} posts`}
+                      onClick={() => {
+                        // Bar body click = filter feed to that day,
+                        // toggling off if it's already the active day.
+                        if (isActiveDay) onFilterChange && onFilterChange({ day: null });
+                        else onFilterChange && onFilterChange({ day: d.key });
+                        setHover(null);
+                      }}
+                      aria-label={`${d.key}: ${effectiveTotal} posts`}
                     >
                       <div className="hm-bar-stack" style={{ height: `${stackH}%` }}>
                         {renderCodes.map((code) => {
-                          const n = w.entry.bySource[code] || 0;
+                          const n = d.entry.bySource[code] || 0;
                           if (n === 0) return null;
                           const segPct = sourceFilter ? 100 : (n / effectiveTotal) * 100;
                           return (
@@ -713,10 +720,10 @@ const Heatmap = ({ daily, dateFilter, sourceFilter, onFilterChange }) => {
                               }}
                               onClick={(ev) => {
                                 ev.stopPropagation();
-                                onFilterChange && onFilterChange({ source: code });
+                                onFilterChange && onFilterChange({ day: d.key, source: code });
                                 setHover(null);
                               }}
-                              title={`Filter to ${SOURCE_META[code]?.label || code}`}
+                              title={`Filter feed: ${d.key} · ${SOURCE_META[code]?.label || code}`}
                             />
                           );
                         })}
@@ -727,14 +734,24 @@ const Heatmap = ({ daily, dateFilter, sourceFilter, onFilterChange }) => {
               </div>
             </div>
 
-            {/* X axis · month markers, evenly spaced across the chart */}
+            {/* X axis · date markers every 5 days, anchored to today so
+                the latest day always gets a label. */}
             <div className="hm-bars-x-axis">
-              {months.map((m) => <div key={m}>{m}</div>)}
+              <div /> {/* spacer matching the y-axis column */}
+              <div className="hm-bars-x-ticks">
+                {dailyData.map((d, di) => {
+                  const fromEnd = dailyData.length - 1 - di;
+                  const show = fromEnd % 5 === 0;
+                  if (!show) return <span key={d.key} />;
+                  const label = `${months[d.date.getUTCMonth()]} ${d.date.getUTCDate()}`;
+                  return <span key={d.key}>{label}</span>;
+                })}
+              </div>
             </div>
 
             <div className="legend" style={{justifyContent:"space-between"}}>
-              <span>WEEKLY TOTALS · 52W ROLLING · STACKED BY SOURCE</span>
-              <span className="dim">HOVER · BREAKDOWN   ·   CLICK SEGMENT · ISOLATE</span>
+              <span>DAILY TOTALS · LAST {BAR_DAYS} DAYS · STACKED BY SOURCE</span>
+              <span className="dim">HOVER · BREAKDOWN   ·   CLICK BAR · DAY   ·   CLICK SEGMENT · DAY + SOURCE</span>
             </div>
             {popover}
           </div>
@@ -850,7 +867,9 @@ const PostRow = ({ post, index, expanded, onToggle, onOpen, onEdit, adminMode })
                        : t === "RULE_OF_LAW" || t === "UKRAINE" ? "red" : "cyan";
           return <span key={t} className={`tag ${color}`}>{t}</span>;
         })}
-        {(post.topics || []).length === 0 && <span className="tag dim">PERSONAL</span>}
+        {/* No fallback tag — an empty topics list is fine; "PERSONAL"
+            was meaningless and was visually colliding with the engage
+            column on narrow viewports. */}
       </div>
       <div className="act" style={{display:"flex", gap:4}}>
         {adminMode && (

@@ -432,7 +432,10 @@ a { color: inherit; text-decoration: none; }
 .row .src { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--fg-3); }
 .row .act { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 
-/* Engagement cluster — likes / comments / shares with small icons. */
+/* Engagement cluster — likes / comments / shares with small icons.
+   overflow:hidden is a safety belt: the column is sized to fit "1.2k"
+   per stat but if a future format change makes it wider, it won't
+   visually bleed into the TOPICS column next door. */
 .row .engage {
   display: flex;
   align-items: center;
@@ -442,6 +445,8 @@ a { color: inherit; text-decoration: none; }
   color: var(--fg-3);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  overflow: hidden;
+  min-width: 0;
 }
 .row .engage .e-item {
   display: inline-flex;
@@ -1870,7 +1875,10 @@ body.theme-light .event-row { border-bottom-color: var(--line); }
   min-height: 2px;
 }
 
-/* X axis · evenly-spaced month markers under the bars */
+/* X axis · date markers along the day window. We render one <span>
+   per day so the labels line up with the corresponding bar; most are
+   empty placeholders, the labelled ones overflow:visible so the text
+   isn't clipped to a single bar's width. */
 .hm-bars-x-axis {
   display: grid;
   grid-template-columns: 34px 1fr;
@@ -1878,19 +1886,30 @@ body.theme-light .event-row { border-bottom-color: var(--line); }
   padding: 0 6px;
   font-family: var(--mono);
   font-size: 9px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.10em;
   color: var(--fg-4);
 }
-.hm-bars-x-axis > div:first-child {
-  /* spacer matches the y-axis column */
-}
-.hm-bars-x-axis > div:last-child {
+.hm-bars-x-ticks {
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  text-align: left;
+  grid-template-columns: repeat(30, 1fr);
+  gap: 3px;
+  padding-top: 4px;
 }
-.hm-bars-x-axis > div:last-child > div {
-  text-align: left;
+.hm-bars-x-ticks > span {
+  display: block;
+  text-align: center;
+  white-space: nowrap;
+  overflow: visible;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Active-day highlight on a bar — matches the heatmap cell's
+   .is-active treatment (amber inset ring, no layout shift). */
+.hm-bar.is-active .hm-bar-stack {
+  box-shadow: inset 0 0 0 2px var(--amber);
+}
+.hm-bar.is-active.is-empty .hm-bar-stack {
+  box-shadow: inset 0 0 0 1px var(--amber);
 }
 
 /* Light theme tweak — gridlines need more presence */

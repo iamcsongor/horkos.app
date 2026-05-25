@@ -86,10 +86,15 @@
 
   // ── statements (posts) ───────────────────────────────────────────────
   async function listStatements({ subjectId, query, mediaFilter, topic, limit = 200 }) {
+    // Sort by published_at (when the post actually went out) so the
+    // newest *real* posts surface at the top of the ledger. Rows
+    // without a published_at fall back to captured_at as a secondary
+    // key so legacy / ingestion-time-only rows still order sensibly.
     let q = sb
       .from("statements")
       .select("*, statement_media(*)")
-      .order("captured_at", { ascending: false })
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .order("captured_at",  { ascending: false })
       .limit(limit);
     if (subjectId) q = q.eq("subject_id", subjectId);
     if (mediaFilter && mediaFilter !== "ALL") q = q.eq("media_kind", mediaFilter.toLowerCase());
