@@ -378,13 +378,11 @@ function App() {
               color: "var(--fg-4)",
               padding: "5px 10px"
             }} onClick={e => e.preventDefault()}>
-              <div>#</div>
-              <div>UTC</div>
-              <div>RECORD_ID</div>
+              <div>POSTED</div>
               <div>SRC</div>
               <div>TYPE</div>
               <div>SUMMARY</div>
-              <div>DISCOURSE</div>
+              <div>ENGAGEMENT</div>
               <div>TOPICS</div>
               <div></div>
             </div>

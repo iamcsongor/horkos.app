@@ -115,6 +115,12 @@
       id: s.code || s.id,
       _uuid: s.id,
       date: s.captured_at ? formatStamp(s.captured_at) : "",
+      // The ledger now shows when the post was *published*, falling back
+      // to capture time when ingestion didn't capture it (older rows).
+      published_at: s.published_at,
+      publish_date: s.published_at
+        ? formatStamp(s.published_at)
+        : (s.captured_at ? formatStamp(s.captured_at) : ""),
       source: s.source_code,
       media_kind: s.media_kind,
       url: s.source_url,

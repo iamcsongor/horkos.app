@@ -27,6 +27,9 @@ const Icon = ({ k, size = 12 }) => {
     case "upload":  return <svg {...common}><path d="M8 11V3M4 7l4-4 4 4"/><path d="M3 12v1h10v-1"/></svg>;
     case "bars":    return <svg {...common}><rect x="3"  y="9"  width="2" height="4"/><rect x="6"  y="6"  width="2" height="7"/><rect x="9"  y="3"  width="2" height="10"/><rect x="12" y="7"  width="2" height="6"/></svg>;
     case "grid":    return <svg {...common}><rect x="3" y="3" width="3" height="3"/><rect x="7" y="3" width="3" height="3"/><rect x="11" y="3" width="2" height="3"/><rect x="3" y="7" width="3" height="3"/><rect x="7" y="7" width="3" height="3"/><rect x="11" y="7" width="2" height="3"/><rect x="3" y="11" width="3" height="2"/><rect x="7" y="11" width="3" height="2"/><rect x="11" y="11" width="2" height="2"/></svg>;
+    case "heart":   return <svg {...common}><path d="M8 13.5s-5-3.2-5-7a2.8 2.8 0 0 1 5-1.8 2.8 2.8 0 0 1 5 1.8c0 3.8-5 7-5 7z"/></svg>;
+    case "comment": return <svg {...common}><path d="M2.5 4h11v6.5H8L5 13v-2.5H2.5z"/></svg>;
+    case "share":   return <svg {...common}><path d="M3 11V8.5a3 3 0 0 1 3-3h6"/><path d="M10 3l3 2.5-3 2.5"/></svg>;
     default: return null;
   }
 };
@@ -384,35 +387,78 @@ const Heatmap = ({ daily, dateFilter, sourceFilter, onFilterChange }) => {
   // Stable order for the legend.
   const legendCodes = SOURCE_CODES.filter(c => sourcesInData.has(c));
 
-  // Hover handlers — we anchor the popover to the cell in viewport coords
-  // and render it position:fixed so the parent panel's overflow doesn't
-  // clip it.
+  // Per-week aggregate used by the BAR view — same shape as cell.entry
+  // so the popover can render either day-level or week-level data with
+  // one component.
+  const weeklyData = useMemo(() => grid.map((week, wi) => {
+    const bySource = {};
+    let total = 0;
+    week.forEach(c => {
+      Object.entries(c.entry.bySource).forEach(([code, n]) => {
+        bySource[code] = (bySource[code] || 0) + n;
+        total += n;
+      });
+    });
+    return { wi, startKey: week[0]?.key, endKey: week[week.length - 1]?.key, entry: { total, bySource } };
+  }), [grid]);
+  const maxWeekTotal = useMemo(
+    () => Math.max(1, ...weeklyData.map(w => w.entry.total)),
+    [weeklyData]
+  );
+
+  // Hover handlers — we anchor the popover to the hovered element in
+  // viewport coords and render it position:fixed so the parent panel's
+  // overflow doesn't clip it. Both cells (day-mode) and bars (week-mode)
+  // feed into the same `hover` state shape.
   const onCellEnter = (e, cell) => {
     cancelHoverDismiss();
     const r = e.currentTarget.getBoundingClientRect();
+    const dayLabel = new Date(cell.key + "T00:00:00Z").toUTCString().slice(0, 16);
     setHover({
       key: cell.key,
       entry: cell.entry,
       anchor: { left: r.left + r.width / 2, top: r.top },
+      label: dayLabel,
+      isWeek: false,
+    });
+  };
+
+  const onBarEnter = (e, week) => {
+    cancelHoverDismiss();
+    const r = e.currentTarget.getBoundingClientRect();
+    // "WK 22 · 19–25 MAY"
+    const fmt = (k) => {
+      const d = new Date(k + "T00:00:00Z");
+      return `${d.getUTCDate()} ${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getUTCMonth()]}`;
+    };
+    const label = `WK ${week.wi + 1} · ${fmt(week.startKey)}–${fmt(week.endKey)}`;
+    setHover({
+      key: week.endKey,
+      entry: week.entry,
+      anchor: { left: r.left + r.width / 2, top: r.top },
+      label,
+      isWeek: true,
     });
   };
 
   const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
 
-  // Pre-compute popover position + content (only when hovered).
+  // Pre-compute popover position + content (only when hovered). Same
+  // popover shell renders both day-level (heatmap) and week-level (bar
+  // chart) breakdowns — `hover.label` and `hover.isWeek` flip the copy
+  // and the row click behaviour.
   let popover = null;
   if (hover) {
     const e = hover.entry || { total: 0, bySource: {} };
     const breakdown = Object.entries(e.bySource).sort((a, b) => b[1] - a[1]);
     const maxN = Math.max(1, ...breakdown.map(x => x[1]));
-    const dayLabel = new Date(hover.key + "T00:00:00Z").toUTCString().slice(0, 16);
     const popW = 240;
     let left = hover.anchor.left;
     const minLeft = popW / 2 + 8;
     const maxLeft = (typeof window !== "undefined" ? window.innerWidth : 1440) - popW / 2 - 8;
     if (left < minLeft) left = minLeft;
     if (left > maxLeft) left = maxLeft;
-    const top = hover.anchor.top - 6;  // small gap; popover sits above
+    const top = hover.anchor.top - 6;
     popover = (
       <div
         className="hm-popover"
@@ -421,7 +467,7 @@ const Heatmap = ({ daily, dateFilter, sourceFilter, onFilterChange }) => {
         onMouseLeave={scheduleHoverDismiss}
       >
         <div className="hm-popover-head">
-          <span className="amber">{dayLabel}</span>
+          <span className="amber">{hover.label}</span>
           <span className="dim">{e.total} POST{e.total === 1 ? "" : "S"}</span>
         </div>
         {breakdown.length === 0 ? (
@@ -429,16 +475,23 @@ const Heatmap = ({ daily, dateFilter, sourceFilter, onFilterChange }) => {
         ) : breakdown.map(([code, n]) => {
           const meta = SOURCE_META[code] || { label: code };
           const pct = (n / maxN) * 100;
+          const filterTitle = hover.isWeek
+            ? `Filter feed by source: ${meta.label}`
+            : `Filter feed: ${hover.label} · ${meta.label}`;
           return (
             <button
               key={code}
               type="button"
               className="hm-popover-row"
               onClick={() => {
-                onFilterChange && onFilterChange({ day: hover.key, source: code });
+                if (hover.isWeek) {
+                  onFilterChange && onFilterChange({ source: code });
+                } else {
+                  onFilterChange && onFilterChange({ day: hover.key, source: code });
+                }
                 setHover(null);
               }}
-              title={`Filter feed: ${dayLabel} · ${meta.label}`}
+              title={filterTitle}
             >
               <span className="hm-popover-code" style={{ color: sourceColor(code, 1, 0.78) }}>{code}</span>
               <span className="hm-popover-bar-wrap">
@@ -452,7 +505,9 @@ const Heatmap = ({ daily, dateFilter, sourceFilter, onFilterChange }) => {
           );
         })}
         <div className="hm-popover-foot dim">
-          ROW · DAY + SOURCE   ·   CELL · DAY ONLY
+          {hover.isWeek
+            ? "ROW · ISOLATE SOURCE"
+            : "ROW · DAY + SOURCE   ·   CELL · DAY ONLY"}
         </div>
       </div>
     );
@@ -564,28 +619,124 @@ const Heatmap = ({ daily, dateFilter, sourceFilter, onFilterChange }) => {
             {popover}
           </div>
         ) : (
-          <div className="heatmap-bar">
-            <svg viewBox={`0 0 ${weekTotals.length * 6 + 10} 80`} width="100%" height="80" style={{display:"block"}}>
-              {weekTotals.map((v, i) => {
-                const h = Math.max(1, (v / Math.max(1, ...weekTotals)) * 70);
-                return (
-                  <rect
-                    key={i}
-                    x={i * 6 + 5}
-                    y={75 - h}
-                    width="4"
-                    height={h}
-                    fill="var(--amber)"
-                    opacity={0.55 + 0.45 * (v / Math.max(1, ...weekTotals))}
-                  />
-                );
-              })}
-              <line x1="0" y1="75" x2={weekTotals.length * 6 + 10} y2="75" stroke="var(--line-2)" />
-            </svg>
-            <div className="legend">
-              <span>WEEKLY TOTALS · 52W ROLLING</span>
-              <span className="dim">TALLER = MORE POSTS</span>
+          // ── Stacked weekly bar chart ──────────────────────────────────
+          // Each bar = 1 of the last 52 weeks. Segments inside the bar
+          // are per-source (FB / X / YT / …) sized by that source's
+          // share of the week's posts. Bar height = total posts that
+          // week, normalised against the busiest week. Hovering shares
+          // the heatmap's popover; clicking a colored segment isolates
+          // that source in the feed.
+          <div className="hm-bars-wrap">
+            {/* Source legend — same component as in the heatmap view so
+                the user has a single mental model for coloring + filter. */}
+            {legendCodes.length > 0 && (
+              <div className="hm-legend">
+                <span className="hm-legend-label dim">SOURCES</span>
+                {legendCodes.map(code => {
+                  const active = sourceFilter === code;
+                  const meta = SOURCE_META[code];
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      className={`hm-src-chip ${active ? "on" : ""} ${sourceFilter && !active ? "muted" : ""}`}
+                      style={{ "--src-color": sourceColor(code, 1, 0.72) }}
+                      onClick={() => onFilterChange && onFilterChange({ source: active ? null : code })}
+                      title={active ? "Clear source filter" : `Filter to ${meta?.label || code}`}
+                    >
+                      <span className="hm-src-swatch" />
+                      {code}
+                    </button>
+                  );
+                })}
+                {sourceFilter && (
+                  <button
+                    type="button"
+                    className="hm-src-clear"
+                    onClick={() => onFilterChange && onFilterChange({ source: null })}
+                    title="Show all sources"
+                  >
+                    × ALL
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="hm-bars-chart">
+              {/* Y axis · just the peak value, anchored to top-left */}
+              <div className="hm-bars-yaxis">
+                <span className="hm-bars-y-top">{maxWeekTotal}</span>
+                <span className="hm-bars-y-mid dim">{Math.round(maxWeekTotal / 2)}</span>
+                <span className="hm-bars-y-bot">0</span>
+              </div>
+
+              {/* The bars themselves · one per week, full panel width */}
+              <div className="hm-bars">
+                {/* horizontal gridlines for legibility */}
+                <div className="hm-bars-grid">
+                  <div /><div /><div /><div />
+                </div>
+                {weeklyData.map((w) => {
+                  // sources present in this week, ordered by SOURCE_CODES
+                  const codes = SOURCE_CODES.filter(c => (w.entry.bySource[c] || 0) > 0);
+                  // when a source filter is active, only that source's
+                  // segment contributes to bar height — matches the
+                  // heatmap's "isolate" behaviour
+                  const effectiveTotal = sourceFilter
+                    ? (w.entry.bySource[sourceFilter] || 0)
+                    : w.entry.total;
+                  const stackH = (effectiveTotal / maxWeekTotal) * 100;
+                  const renderCodes = sourceFilter ? [sourceFilter] : codes;
+                  return (
+                    <button
+                      key={w.wi}
+                      type="button"
+                      className={`hm-bar ${effectiveTotal === 0 ? "is-empty" : ""}`}
+                      onMouseEnter={(e) => onBarEnter(e, w)}
+                      onMouseLeave={scheduleHoverDismiss}
+                      onClick={() => setHover(null)}
+                      aria-label={`Week ${w.wi + 1}: ${effectiveTotal} posts`}
+                    >
+                      <div className="hm-bar-stack" style={{ height: `${stackH}%` }}>
+                        {renderCodes.map((code) => {
+                          const n = w.entry.bySource[code] || 0;
+                          if (n === 0) return null;
+                          const segPct = sourceFilter ? 100 : (n / effectiveTotal) * 100;
+                          return (
+                            <span
+                              key={code}
+                              className="hm-bar-seg"
+                              style={{
+                                height: `${segPct}%`,
+                                background: sourceColor(code, 0.92, 0.70),
+                                borderTopColor: sourceColor(code, 1, 0.80),
+                              }}
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                onFilterChange && onFilterChange({ source: code });
+                                setHover(null);
+                              }}
+                              title={`Filter to ${SOURCE_META[code]?.label || code}`}
+                            />
+                          );
+                        })}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
+            {/* X axis · month markers, evenly spaced across the chart */}
+            <div className="hm-bars-x-axis">
+              {months.map((m) => <div key={m}>{m}</div>)}
+            </div>
+
+            <div className="legend" style={{justifyContent:"space-between"}}>
+              <span>WEEKLY TOTALS · 52W ROLLING · STACKED BY SOURCE</span>
+              <span className="dim">HOVER · BREAKDOWN   ·   CLICK SEGMENT · ISOLATE</span>
+            </div>
+            {popover}
           </div>
         )}
       </div>
@@ -655,13 +806,25 @@ const Toolbar = ({ query, setQuery, mediaFilter, setMediaFilter, topicFilter, se
 );
 
 // ── Post row ──────────────────────────────────────────────────────────
+// Compact number formatter for engagement counts (1234 → "1.2k").
+const fmtN = (n) => {
+  if (n == null) return "0";
+  const v = Number(n) || 0;
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (v >= 1_000)     return (v / 1_000).toFixed(1).replace(/\.0$/, "") + "k";
+  return String(v);
+};
+
 const PostRow = ({ post, index, expanded, onToggle, onOpen, onEdit, adminMode }) => {
   const mtype = post.media_kind || post.media || "text";
+  const r = post.reactions || {};
+  // Show the date the post was *published*, falling back to capture time
+  // for older rows that pre-date the ingestion-time publish_at column.
+  const postedRaw = post.published_at || post.captured_at;
+  const postedShort = postedRaw ? new Date(postedRaw).toISOString().slice(0, 10) : "";
   return (
     <div className={"row" + (expanded ? " expanded active" : "")} onClick={() => onToggle(post._uuid)}>
-      <div className="idx">{String(index+1).padStart(4,"0")}</div>
-      <div className="date">{post.date}</div>
-      <div className="id dim2">{post.code || post.id}</div>
+      <div className="date" title={postedRaw ? `Published ${postedRaw}` : ""}>{postedShort}</div>
       <div className="src">
         <span className="src-mark">{post.source}</span>
         <span>{post.source}</span>
@@ -670,9 +833,16 @@ const PostRow = ({ post, index, expanded, onToggle, onOpen, onEdit, adminMode })
         <Icon k={mtype} />
       </div>
       <div className="sum">{post.summary}</div>
-      <div className="ppl">
-        <Icon k="users" />
-        <span>{(post.participants || 0).toLocaleString()}</span>
+      <div className="engage">
+        <span className="e-item" title={`${(r.likes || 0).toLocaleString()} likes`}>
+          <Icon k="heart" /> {fmtN(r.likes)}
+        </span>
+        <span className="e-item" title={`${(r.comments || 0).toLocaleString()} comments`}>
+          <Icon k="comment" /> {fmtN(r.comments)}
+        </span>
+        <span className="e-item" title={`${(r.shares || 0).toLocaleString()} shares`}>
+          <Icon k="share" /> {fmtN(r.shares)}
+        </span>
       </div>
       <div className="topics">
         {(post.topics || []).slice(0,2).map(t => {
