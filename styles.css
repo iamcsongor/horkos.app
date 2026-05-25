@@ -1287,6 +1287,302 @@ body.theme-light .cell { box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.5); }
 /* subject big number — slightly darker amber for legibility */
 body.theme-light .subject .stack .big { color: var(--amber-d); }
 
+
+/* ════════════════════════════════════════════════════════════════════════
+   Interactive heatmap (per-subject FEED tab)
+   ──────────────────────────────────────────────────────────────────────
+   The base .heatmap / .cell rules above still apply; .heatmap-lg upgrades
+   the panel with bigger cells, a source legend, a hover popover, and an
+   "active filters" chip row that renders just above the post ledger.
+   Source colors are computed inline in JS (oklch with per-source hue), so
+   most rules here are layout/typography rather than colour.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Larger cells + a bit more breathing room. */
+.heatmap-lg .cells {
+  grid-template-rows: repeat(7, 14px);
+  gap: 3px;
+}
+.heatmap-lg .cell,
+.heatmap-lg .hm-cell {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  transition: transform 0.08s ease, outline-color 0.1s ease;
+}
+.heatmap-lg .hm-cell:hover {
+  outline: 1px solid var(--fg);
+  transform: scale(1.15);
+  z-index: 2;
+  position: relative;
+}
+.heatmap-lg .hm-cell.is-empty:hover {
+  outline-color: var(--fg-4);
+  transform: scale(1.05);
+}
+.heatmap-lg .hm-cell.is-active {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+  z-index: 3;
+  position: relative;
+}
+
+/* Source legend chips · doubles as filter UI. */
+.hm-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px dashed var(--line);
+}
+.hm-legend-label {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  margin-right: 2px;
+}
+.hm-src-chip {
+  --src-color: var(--amber);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  color: var(--fg-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: border-color 0.1s ease, background 0.1s ease, opacity 0.1s ease;
+}
+.hm-src-chip:hover {
+  border-color: var(--src-color);
+  color: var(--fg);
+}
+.hm-src-chip.on {
+  border-color: var(--src-color);
+  background: color-mix(in oklab, var(--src-color) 18%, var(--bg-1));
+  color: var(--fg);
+}
+.hm-src-chip.muted {
+  opacity: 0.45;
+}
+.hm-src-chip .hm-src-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--src-color);
+  border: 1px solid color-mix(in oklab, var(--src-color) 80%, black);
+  flex-shrink: 0;
+}
+.hm-src-clear {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--fg-3);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.hm-src-clear:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+/* Hover popover · position:fixed so panel overflow can't clip it. */
+.hm-popover {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  z-index: 50;
+  background: var(--bg-1);
+  border: 1px solid var(--line-2);
+  box-shadow: 0 12px 32px oklch(0 0 0 / 0.55), 0 0 0 1px oklch(0 0 0 / 0.25);
+  padding: 8px 10px 10px;
+  font-family: var(--mono);
+  color: var(--fg-2);
+  border-radius: 3px;
+  pointer-events: auto;
+}
+/* Little notch pointing down at the cell. */
+.hm-popover::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: var(--bg-1);
+  border-right: 1px solid var(--line-2);
+  border-bottom: 1px solid var(--line-2);
+}
+.hm-popover-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed var(--line);
+}
+.hm-popover-empty {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-align: center;
+  padding: 6px 0;
+  text-transform: uppercase;
+}
+.hm-popover-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 32px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 4px;
+  background: transparent;
+  border: 0;
+  border-radius: 2px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  margin: 1px 0;
+}
+.hm-popover-row:hover {
+  background: var(--bg-2);
+}
+.hm-popover-code {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+.hm-popover-bar-wrap {
+  display: block;
+  height: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 1px;
+  overflow: hidden;
+  position: relative;
+}
+.hm-popover-bar {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  transition: width 0.15s ease;
+}
+.hm-popover-n {
+  font-size: 11px;
+  text-align: right;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.hm-popover-foot {
+  font-size: 8px;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+  text-align: center;
+}
+
+/* Active filter chips (live above the post ledger). */
+.hm-active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: var(--bg-1);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-top: -1px;  /* sit flush against the toolbar */
+}
+.hm-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: oklch(0.62 0.14 75 / 0.10);
+  color: var(--amber);
+  border: 1px solid oklch(0.62 0.14 75 / 0.5);
+  border-radius: 2px;
+  cursor: pointer;
+  font: inherit;
+  text-transform: uppercase;
+}
+.hm-filter-chip:hover {
+  background: oklch(0.62 0.14 75 / 0.22);
+}
+.hm-filter-chip .x { opacity: 0.75; }
+.hm-filter-chip:hover .x { opacity: 1; }
+.hm-filter-chip.clear-all {
+  background: transparent;
+  color: var(--fg-3);
+  border-color: var(--line);
+}
+.hm-filter-chip.clear-all:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+/* Light theme tweaks. */
+body.theme-light .hm-popover {
+  background: oklch(0.98 0.005 75);
+  border-color: oklch(0.72 0.012 60);
+  box-shadow: 0 12px 32px oklch(0.30 0.010 75 / 0.20), 0 0 0 1px oklch(0.50 0.010 60 / 0.10);
+}
+body.theme-light .hm-popover::after {
+  background: oklch(0.98 0.005 75);
+  border-right-color: oklch(0.72 0.012 60);
+  border-bottom-color: oklch(0.72 0.012 60);
+}
+body.theme-light .hm-popover-row:hover { background: oklch(0.94 0.006 75); }
+body.theme-light .hm-popover-bar-wrap {
+  background: oklch(0.92 0.006 75);
+  border-color: oklch(0.82 0.010 75);
+}
+body.theme-light .hm-src-chip {
+  background: oklch(0.96 0.005 75);
+}
+body.theme-light .hm-src-chip.on {
+  background: color-mix(in oklab, var(--src-color) 22%, oklch(0.96 0.005 75));
+}
+body.theme-light .hm-active-filters { background: oklch(0.96 0.005 75); }
+
+/* Responsive — keep cells modest on phones, drop the popover footer hint. */
+@media (max-width: 720px) {
+  .heatmap-lg .cells {
+    grid-template-rows: repeat(7, 11px);
+    gap: 2px;
+  }
+  .heatmap-lg .cell,
+  .heatmap-lg .hm-cell {
+    width: 11px;
+    height: 11px;
+  }
+  .hm-popover { width: 200px !important; }
+  .hm-popover-foot { display: none; }
+  .hm-legend { gap: 4px; }
+  .hm-src-chip { padding: 2px 6px; font-size: 9px; }
+}
+
 /* analyst note — softer */
 body.theme-light .modal .right-pane > div > div[style*="italic"] { color: var(--fg-2); }
 

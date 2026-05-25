@@ -205,8 +205,11 @@
   }
 
   async function getActivityDaily(subjectId) {
-    const data = ok(await sb.from("subject_activity_daily").select("*").eq("subject_id", subjectId));
-    // returns [{subject_id, day, posts}]
+    // Per-source breakdown drives the interactive heatmap on the FEED tab
+    // (dominant-source coloring + hover popover with per-channel bars).
+    // The Heatmap component aggregates these rows by day for totals.
+    const data = ok(await sb.from("subject_activity_daily_by_source").select("*").eq("subject_id", subjectId));
+    // returns [{subject_id, source_code, day, posts}]
     return data;
   }
 

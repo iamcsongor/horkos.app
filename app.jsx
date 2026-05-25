@@ -73,6 +73,8 @@ function App() {
   const [query, setQuery]             = appUseState("");
   const [mediaFilter, setMediaFilter] = appUseState("ALL");
   const [topicFilter, setTopicFilter] = appUseState(null);
+  const [dateFilter, setDateFilter]   = appUseState(null);   // YYYY-MM-DD from heatmap
+  const [sourceFilter, setSourceFilter] = appUseState(null); // 'FB' | 'X' | … from heatmap legend / popover
   const [expandedId, setExpandedId]   = appUseState(null);
   const [modalPost, setModalPost]     = appUseState(null);
 
@@ -188,10 +190,37 @@ function App() {
       const m = (p.media_kind || p.media || "").toUpperCase();
       if (mediaFilter !== "ALL" && m !== mediaFilter) return false;
       if (topicFilter && !(p.topics || []).includes(topicFilter)) return false;
+      if (sourceFilter && (p.source_code || p.source) !== sourceFilter) return false;
+      if (dateFilter) {
+        // captured_at is ISO; the heatmap view buckets in UTC, so compare
+        // the YYYY-MM-DD slice of the UTC ISO string.
+        const day = p.captured_at ? new Date(p.captured_at).toISOString().slice(0, 10) : "";
+        if (day !== dateFilter) return false;
+      }
       if (q && !(`${p.summary} ${p.preview} ${(p.topics||[]).join(" ")} ${p.code} ${p.id}`.toLowerCase().includes(q))) return false;
       return true;
     });
-  }, [posts, query, mediaFilter, topicFilter]);
+  }, [posts, query, mediaFilter, topicFilter, dateFilter, sourceFilter]);
+
+  // Reset heatmap filters when switching subjects — a day/source from one
+  // subject's archive shouldn't bleed into another's feed view.
+  appUseEffect(() => {
+    setDateFilter(null);
+    setSourceFilter(null);
+  }, [activeSubjectId]);
+
+  // Single entry point the Heatmap uses to patch filter state. Accepting a
+  // partial { day?, source? } lets us combine "click cell" (day only) and
+  // "click source row in popover" (day + source) without two callbacks.
+  const onHeatmapFilter = appUseCallback((patch) => {
+    if ("day" in patch) setDateFilter(patch.day);
+    if ("source" in patch) setSourceFilter(patch.source);
+  }, []);
+
+  // Pretty label for the dateFilter chip.
+  const dateFilterLabel = dateFilter
+    ? new Date(dateFilter + "T00:00:00Z").toUTCString().slice(0, 16)
+    : null;
 
   // Portrait upload from the dossier card
   const handlePortraitUpload = appUseCallback(async (file) => {
@@ -265,7 +294,14 @@ function App() {
             onPortraitUpload={handlePortraitUpload}
           />
           {tweaks.showStats   && <StatGrid delta={delta} />}
-          {tweaks.showHeatmap && <Heatmap daily={activityDaily} />}
+          {tweaks.showHeatmap && (
+            <Heatmap
+              daily={activityDaily}
+              dateFilter={dateFilter}
+              sourceFilter={sourceFilter}
+              onFilterChange={onHeatmapFilter}
+            />
+          )}
 
           <Toolbar
             query={query} setQuery={setQuery}
@@ -274,6 +310,43 @@ function App() {
             count={filtered.length}
             topics={window.HARDCODED.TOPICS}
           />
+
+          {/* Active heatmap filters — visible chips with dismiss buttons.
+              Sits between the toolbar and the ledger so it reads as part
+              of the active filter set. */}
+          {(dateFilter || sourceFilter) && (
+            <div className="hm-active-filters">
+              <span className="dim">FILTERED BY HEATMAP →</span>
+              {dateFilter && (
+                <button
+                  type="button"
+                  className="hm-filter-chip"
+                  onClick={() => setDateFilter(null)}
+                  title="Clear day filter"
+                >
+                  DAY · {dateFilterLabel} <span className="x">×</span>
+                </button>
+              )}
+              {sourceFilter && (
+                <button
+                  type="button"
+                  className="hm-filter-chip"
+                  onClick={() => setSourceFilter(null)}
+                  title="Clear source filter"
+                >
+                  SOURCE · {sourceFilter} <span className="x">×</span>
+                </button>
+              )}
+              <button
+                type="button"
+                className="hm-filter-chip clear-all"
+                onClick={() => { setDateFilter(null); setSourceFilter(null); }}
+                title="Clear all heatmap filters"
+              >
+                CLEAR ALL
+              </button>
+            </div>
+          )}
 
           <section className="panel corners" style={{padding: 0}}>
             <div className="panel-head">

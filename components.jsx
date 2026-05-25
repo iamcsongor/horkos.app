@@ -274,28 +274,90 @@ const SubjectCard = ({ subject, totals, adminMode, onEdit, onPortraitUpload }) =
   );
 };
 
-// ── Activity heatmap (with HEAT / BAR toggle) ─────────────────────────
-const Heatmap = ({ daily }) => {
+// ── Activity heatmap (interactive · stacked-by-source) ────────────────
+// Cells are colored by the day's dominant source. Hover reveals a popover
+// with the per-source breakdown — clicking a source row filters the feed
+// to that day + source; clicking the cell body filters by day only. Legend
+// chips above the grid double as the color key and as a one-click source
+// filter. Filter state is owned by the parent — this component is a
+// controlled view of `dateFilter` + `sourceFilter`.
+const SOURCE_META = {
+  FB: { label: "FACEBOOK",    hue: 230, chroma: 0.13 },
+  X:  { label: "X / TWITTER", hue: 250, chroma: 0.02 },
+  YT: { label: "YOUTUBE",     hue: 25,  chroma: 0.19 },
+  IG: { label: "INSTAGRAM",   hue: 340, chroma: 0.17 },
+  TG: { label: "TELEGRAM",    hue: 215, chroma: 0.11 },
+  PR: { label: "PRESS",       hue: 95,  chroma: 0.12 },
+  LX: { label: "LEGAL",       hue: 60,  chroma: 0.13 },
+};
+const SOURCE_CODES = ["FB", "X", "YT", "IG", "TG", "PR", "LX"];
+
+const sourceColor = (code, alpha = 1, light = 0.72) => {
+  const m = SOURCE_META[code];
+  if (!m) return `oklch(${light} 0.10 75 / ${alpha})`;
+  return `oklch(${light} ${m.chroma} ${m.hue} / ${alpha})`;
+};
+
+const Heatmap = ({ daily, dateFilter, sourceFilter, onFilterChange }) => {
   const [view, setView] = useState(() => localStorage.getItem("horkos.heatmapView") || "heat");
   useEffect(() => { localStorage.setItem("horkos.heatmapView", view); }, [view]);
 
-  // Build a 52-week × 7-day grid from `daily` ({day, posts}[]).
-  // The grid's last cell is "today". Cell intensity bucket 0..4.
-  const { grid, total, heaviest, weekTotals } = useMemo(() => {
-    const map = new Map();
-    (daily || []).forEach(r => map.set(String(r.day).slice(0, 10), Number(r.posts) || 0));
+  // Hover popover state. We use a timeout so the cursor can travel from
+  // the cell into the popover without the popover dismissing en route.
+  const [hover, setHover] = useState(null);  // { key, entry, anchor:{left,top} }
+  const hoverTimeoutRef = useRef(null);
+  const cancelHoverDismiss = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  };
+  const scheduleHoverDismiss = () => {
+    cancelHoverDismiss();
+    hoverTimeoutRef.current = setTimeout(() => setHover(null), 150);
+  };
+  useEffect(() => () => cancelHoverDismiss(), []);
+
+  // Roll the per-source rows up to per-day { total, bySource }.
+  const dayMap = useMemo(() => {
+    const m = new Map();
+    (daily || []).forEach(r => {
+      const key = String(r.day).slice(0, 10);
+      const src = r.source_code || "??";
+      const n   = Number(r.posts) || 0;
+      const entry = m.get(key) || { total: 0, bySource: {} };
+      entry.bySource[src] = (entry.bySource[src] || 0) + n;
+      entry.total += n;
+      m.set(key, entry);
+    });
+    return m;
+  }, [daily]);
+
+  // Build the 52w × 7d grid ending today, scoped by active source filter.
+  const { grid, total, heaviest, weekTotals, sourcesInData } = useMemo(() => {
     const today = new Date();
     today.setUTCHours(0,0,0,0);
-    const endDow = today.getUTCDay(); // 0..6 (Sun..Sat); we'll use Mon-start
     const daysBack = 52 * 7;
     const cells = [];
     for (let i = daysBack - 1; i >= 0; i--) {
       const d = new Date(today.getTime() - i * 86400000);
       const key = d.toISOString().slice(0, 10);
-      cells.push({ key, posts: map.get(key) || 0 });
+      const entry = dayMap.get(key) || { total: 0, bySource: {} };
+      // If a source filter is set, intensity comes from that source only;
+      // otherwise it's the total and the dominant source picks the hue.
+      const effective = sourceFilter
+        ? (entry.bySource[sourceFilter] || 0)
+        : entry.total;
+      let dominant = sourceFilter || null;
+      if (!dominant) {
+        let bestN = 0;
+        for (const [s, n] of Object.entries(entry.bySource)) {
+          if (n > bestN) { bestN = n; dominant = s; }
+        }
+      }
+      cells.push({ key, effective, dominant, entry });
     }
-    // bucket
-    const max = Math.max(1, ...cells.map(c => c.posts));
+    const max = Math.max(1, ...cells.map(c => c.effective));
     const bucket = (n) => {
       if (n <= 0) return 0;
       const r = n / max;
@@ -306,18 +368,96 @@ const Heatmap = ({ daily }) => {
     };
     const grid = [];
     let acc = [];
-    cells.forEach((c, idx) => {
-      acc.push(bucket(c.posts));
+    cells.forEach(c => {
+      acc.push({ ...c, v: bucket(c.effective) });
       if (acc.length === 7) { grid.push(acc); acc = []; }
     });
     if (acc.length) grid.push(acc);
-    const total    = cells.filter(c => c.posts > 0).length;
-    const heaviest = Math.max(0, ...cells.map(c => c.posts));
-    const weekTotals = grid.map(week => week.reduce((s, v) => s + v, 0));
-    return { grid, total, heaviest, weekTotals };
-  }, [daily]);
+    const total    = cells.filter(c => c.effective > 0).length;
+    const heaviest = Math.max(0, ...cells.map(c => c.effective));
+    const weekTotals = grid.map(week => week.reduce((s, c) => s + c.effective, 0));
+    const sourcesInData = new Set();
+    cells.forEach(c => Object.keys(c.entry.bySource).forEach(s => sourcesInData.add(s)));
+    return { grid, total, heaviest, weekTotals, sourcesInData };
+  }, [dayMap, sourceFilter]);
+
+  // Stable order for the legend.
+  const legendCodes = SOURCE_CODES.filter(c => sourcesInData.has(c));
+
+  // Hover handlers — we anchor the popover to the cell in viewport coords
+  // and render it position:fixed so the parent panel's overflow doesn't
+  // clip it.
+  const onCellEnter = (e, cell) => {
+    cancelHoverDismiss();
+    const r = e.currentTarget.getBoundingClientRect();
+    setHover({
+      key: cell.key,
+      entry: cell.entry,
+      anchor: { left: r.left + r.width / 2, top: r.top },
+    });
+  };
 
   const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+
+  // Pre-compute popover position + content (only when hovered).
+  let popover = null;
+  if (hover) {
+    const e = hover.entry || { total: 0, bySource: {} };
+    const breakdown = Object.entries(e.bySource).sort((a, b) => b[1] - a[1]);
+    const maxN = Math.max(1, ...breakdown.map(x => x[1]));
+    const dayLabel = new Date(hover.key + "T00:00:00Z").toUTCString().slice(0, 16);
+    const popW = 240;
+    let left = hover.anchor.left;
+    const minLeft = popW / 2 + 8;
+    const maxLeft = (typeof window !== "undefined" ? window.innerWidth : 1440) - popW / 2 - 8;
+    if (left < minLeft) left = minLeft;
+    if (left > maxLeft) left = maxLeft;
+    const top = hover.anchor.top - 6;  // small gap; popover sits above
+    popover = (
+      <div
+        className="hm-popover"
+        style={{ left, top, width: popW }}
+        onMouseEnter={cancelHoverDismiss}
+        onMouseLeave={scheduleHoverDismiss}
+      >
+        <div className="hm-popover-head">
+          <span className="amber">{dayLabel}</span>
+          <span className="dim">{e.total} POST{e.total === 1 ? "" : "S"}</span>
+        </div>
+        {breakdown.length === 0 ? (
+          <div className="hm-popover-empty dim">NO ACTIVITY</div>
+        ) : breakdown.map(([code, n]) => {
+          const meta = SOURCE_META[code] || { label: code };
+          const pct = (n / maxN) * 100;
+          return (
+            <button
+              key={code}
+              type="button"
+              className="hm-popover-row"
+              onClick={() => {
+                onFilterChange && onFilterChange({ day: hover.key, source: code });
+                setHover(null);
+              }}
+              title={`Filter feed: ${dayLabel} · ${meta.label}`}
+            >
+              <span className="hm-popover-code" style={{ color: sourceColor(code, 1, 0.78) }}>{code}</span>
+              <span className="hm-popover-bar-wrap">
+                <span
+                  className="hm-popover-bar"
+                  style={{ width: `${pct}%`, background: sourceColor(code, 0.85, 0.72) }}
+                />
+              </span>
+              <span className="hm-popover-n">{n}</span>
+            </button>
+          );
+        })}
+        <div className="hm-popover-foot dim">
+          ROW · DAY + SOURCE   ·   CELL · DAY ONLY
+        </div>
+      </div>
+    );
+  }
+
   return (
     <section className="panel corners">
       <div className="panel-head">
@@ -337,7 +477,41 @@ const Heatmap = ({ daily }) => {
       </div>
       <div className="panel-body">
         {view === "heat" ? (
-          <div className="heatmap">
+          <div className="heatmap heatmap-lg">
+            {/* Source legend chips · doubles as filter */}
+            {legendCodes.length > 0 && (
+              <div className="hm-legend">
+                <span className="hm-legend-label dim">SOURCES</span>
+                {legendCodes.map(code => {
+                  const active = sourceFilter === code;
+                  const meta = SOURCE_META[code];
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      className={`hm-src-chip ${active ? "on" : ""} ${sourceFilter && !active ? "muted" : ""}`}
+                      style={{ "--src-color": sourceColor(code, 1, 0.72) }}
+                      onClick={() => onFilterChange && onFilterChange({ source: active ? null : code })}
+                      title={active ? "Clear source filter" : `Filter to ${meta?.label || code}`}
+                    >
+                      <span className="hm-src-swatch" />
+                      {code}
+                    </button>
+                  );
+                })}
+                {sourceFilter && (
+                  <button
+                    type="button"
+                    className="hm-src-clear"
+                    onClick={() => onFilterChange && onFilterChange({ source: null })}
+                    title="Show all sources"
+                  >
+                    × ALL
+                  </button>
+                )}
+              </div>
+            )}
+
             <div style={{display:"grid", gridTemplateColumns:"16px 1fr", gap:4}}>
               <div></div>
               <div style={{display:"grid", gridTemplateColumns:"repeat(12, 1fr)", fontSize:9, letterSpacing:"0.12em", color:"var(--fg-4)"}}>
@@ -350,14 +524,31 @@ const Heatmap = ({ daily }) => {
               </div>
               <div className="cells">
                 {grid.map((week, wi) =>
-                  week.map((v, di) => (
-                    <div key={`${wi}-${di}`} className={`cell v${v}`} title={`Week ${wi+1}, Day ${di+1}: bucket ${v}`}></div>
-                  ))
+                  week.map((c, di) => {
+                    const isActiveDay = dateFilter === c.key;
+                    const inlineStyle = c.v === 0 ? undefined : {
+                      background:   sourceColor(c.dominant, 0.25 + 0.18 * c.v, 0.72),
+                      borderColor:  sourceColor(c.dominant, 0.45 + 0.13 * c.v, 0.72),
+                    };
+                    return (
+                      <div
+                        key={`${wi}-${di}`}
+                        className={`cell hm-cell v${c.v}${isActiveDay ? " is-active" : ""}${c.v === 0 ? " is-empty" : ""}`}
+                        style={inlineStyle}
+                        onMouseEnter={(e) => onCellEnter(e, c)}
+                        onMouseLeave={scheduleHoverDismiss}
+                        onClick={() => {
+                          if (isActiveDay) onFilterChange && onFilterChange({ day: null });
+                          else onFilterChange && onFilterChange({ day: c.key });
+                        }}
+                      />
+                    );
+                  })
                 )}
               </div>
             </div>
             <div className="legend" style={{justifyContent:"space-between"}}>
-              <span>HOVER FOR DAY · CLICK TO FILTER FEED</span>
+              <span>HOVER · BREAKDOWN   ·   CLICK CELL · DAY   ·   CLICK CHIP · SOURCE</span>
               <span style={{display:"flex", alignItems:"center", gap:6}}>
                 LESS
                 <span className="swatches">
@@ -370,6 +561,7 @@ const Heatmap = ({ daily }) => {
                 MORE
               </span>
             </div>
+            {popover}
           </div>
         ) : (
           <div className="heatmap-bar">
