@@ -514,10 +514,49 @@ a { color: inherit; text-decoration: none; }
 .row .expand-area .meta {
   display: flex; flex-direction: column; gap: 8px;
   font-size: 10px;
+  min-width: 0;            /* allow children to shrink instead of forcing overflow */
 }
-.row .expand-area .meta .kv { display: flex; flex-direction: column; }
+.row .expand-area .meta .kv { display: flex; flex-direction: column; min-width: 0; }
 .row .expand-area .meta .kv .k { font-size: 9px; letter-spacing: 0.14em; color: var(--fg-4); text-transform: uppercase; }
-.row .expand-area .meta .kv .v { font-size: 11px; color: var(--fg); }
+.row .expand-area .meta .kv .v {
+  font-size: 11px;
+  color: var(--fg);
+  min-width: 0;
+  overflow: hidden;        /* defensive — prevents any raw long string from blowing the column */
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Source link (replaces the old raw URL). Clickable, ellipses if the
+   hostname is somehow longer than the meta column. */
+.row .expand-area .src-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  color: var(--amber);
+  text-decoration: none;
+  border-bottom: 1px dashed oklch(0.62 0.14 75 / 0.4);
+  padding-bottom: 1px;
+}
+.row .expand-area .src-link:hover {
+  color: var(--fg);
+  border-bottom-color: var(--fg);
+}
+.row .expand-area .src-link svg { opacity: 0.75; flex-shrink: 0; }
+.row .expand-area .src-link-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  letter-spacing: 0.06em;
+}
+
+/* No-media variant — text-only posts skip the media-thumb column,
+   so the expand-area becomes a two-column layout (body / meta). */
+.row .expand-area.no-media {
+  grid-template-columns: 1fr 220px;
+}
 .row .expand-area .reactions {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
 }
@@ -2358,7 +2397,8 @@ body.admin-mode .topbar { box-shadow: inset 0 -1px 0 var(--amber); }
   .row .act    { grid-area: act;    justify-self: end; }
 
   /* ── Row expand area: single column ─────────────────────────────────── */
-  .row .expand-area {
+  .row .expand-area,
+  .row .expand-area.no-media {
     grid-template-columns: 1fr;
     grid-row-gap: 10px;
     padding: 10px;

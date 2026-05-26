@@ -883,20 +883,54 @@ const PostRow = ({ post, index, expanded, onToggle, onOpen, onEdit, adminMode })
       </div>
 
       {expanded && (
-        <div className="expand-area" onClick={(e) => e.stopPropagation()}>
-          <div className={`media-thumb ${mtype}`} onClick={() => onOpen(post)}>
-            {mtype === "image" && (post.media && post.media[0] && post.media[0].url
-              ? <img src={post.media[0].url} alt="" style={{maxHeight:140, maxWidth:"100%"}} />
-              : <span>[ IMAGE ]</span>)}
-            {mtype === "video" && <><Icon k="play" size={20} /><span style={{marginLeft:8}}>[ VIDEO ]</span></>}
-            {mtype === "text"  && <span>[ TEXT ONLY ]</span>}
-          </div>
+        <div
+          className={`expand-area ${mtype === "text" ? "no-media" : ""}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Media thumb is only meaningful for image/video posts —
+              for text-only posts the rectangle was an empty
+              "[ TEXT ONLY ]" placeholder that just ate horizontal
+              room. We drop it entirely and let .expand-area.no-media
+              reflow to two columns. */}
+          {mtype !== "text" && (
+            <div className={`media-thumb ${mtype}`} onClick={() => onOpen(post)}>
+              {mtype === "image" && (post.media && post.media[0] && post.media[0].url
+                ? <img src={post.media[0].url} alt="" style={{maxHeight:140, maxWidth:"100%"}} />
+                : <span>[ IMAGE ]</span>)}
+              {mtype === "video" && <><Icon k="play" size={20} /><span style={{marginLeft:8}}>[ VIDEO ]</span></>}
+            </div>
+          )}
           <div className="body">
             <div className="label">PREVIEW · 10-LINE CAP · CLICK TO POP OUT</div>
             {post.preview}
           </div>
           <div className="meta">
-            <div className="kv"><span className="k">URL</span><span className="v"><Icon k="link" /> {post.url}</span></div>
+            {/* SOURCE row: was raw URL text that overflowed the panel;
+                now a real <a> with a short, clickable label. Hostname
+                shown when parseable, falling back to "OPEN SOURCE →". */}
+            <div className="kv">
+              <span className="k">SOURCE</span>
+              <span className="v">
+                {post.url ? (
+                  <a
+                    href={post.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="src-link"
+                    onClick={(e) => e.stopPropagation()}
+                    title={post.url}
+                  >
+                    <Icon k="link" />
+                    <span className="src-link-label">
+                      {(() => {
+                        try { return new URL(post.url).hostname.replace(/^www\./, ""); }
+                        catch { return "OPEN SOURCE →"; }
+                      })()}
+                    </span>
+                  </a>
+                ) : <span className="dim">—</span>}
+              </span>
+            </div>
             <div className="kv"><span className="k">CAPTURED</span><span className="v">{post.date} UTC</span></div>
             <div className="kv"><span className="k">DISCOURSE</span><span className="v">{(post.participants || 0).toLocaleString()} commenters</span></div>
             <div className="reactions">
