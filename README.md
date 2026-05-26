@@ -100,19 +100,58 @@ python3 -m http.server 8000
 
 Stack: HTML + React (via Babel standalone) + plain CSS. Designed at 1440px, scales down to ~980px.
 
-Mock data lives in `data.js`. Replace with API calls once the backend is wired.
+Live data (subjects, posts, activity, media) is fetched from Supabase; the rest of the panels are still hardcoded. See **Backend** below to set the project up.
+
+---
+
+## Backend
+
+The archive is backed by [Supabase](https://supabase.com) (hosted Postgres + Storage). The publishable key in `config.js` is safe to commit — Postgres row-level security is what protects the data.
+
+**For automation that writes into the archive — including the planned Facebook ingestion pipeline — see [`docs/INTEGRATION.md`](docs/INTEGRATION.md).** It's the canonical reference for the schema, storage layout, authentication, the FB → Horkos field mapping, and a working end-to-end example.
+
+### One-time setup
+
+1. Create a Supabase project at supabase.com.
+2. Open **SQL Editor → New query**, paste the contents of `supabase/migrations/001_init.sql`, and run it. This creates the five v1 tables (`subjects`, `statements`, `statement_media`, `sources`, `app_settings`), the derived views (`subject_totals`, `subject_30d_delta`, `subject_activity_daily`), RLS policies, and two public storage buckets (`portraits`, `media`). It also seeds the three initial Hungarian subjects.
+3. Edit `config.js` so `SUPABASE_URL` and `SUPABASE_KEY` (the `sb_publishable_...` key) point at your project. The publishable key is meant to be in client code.
+
+### Admin mode
+
+The UI is read-only by default. To unlock the create/edit controls, visit the page with `?admin=1` once — the flag is persisted in `localStorage`. Turn it off with `?admin=0` or `horkosAdmin.off()` in DevTools.
+
+In admin mode:
+- `+ NEW` in the SUBJECTS sidebar opens the subject editor.
+- The subject portrait becomes hover-to-upload; the editor also accepts an external URL.
+- Each post row gets an inline edit icon, and the toolbar gains `+ ADD POST`.
+
+### What's live vs. hardcoded (v1)
+
+| Live (Supabase) | Hardcoded (in `data.js`) |
+|---|---|
+| Subjects (max 8 shown, ordered by `watchlist_rank`) | LIVE LOG panel |
+| Subject dossier card | TOPIC DIST. panel |
+| Posts indexed / videos / images counters | POSTING RHYTHM panel |
+| 30D POSTS vs prev delta | CONTRADICTION LOG panel |
+| Activity heatmap (HEAT/BAR toggle) | Engagement / discourse / media-ratio / sentiment tiles |
+| Post ledger (search, filter, edit, add) | SOURCES + SAVED QUERIES sidebar lists |
+| Lawsuits counter (editable, stored on subject) | |
 
 ---
 
 ## Repository layout
 
 ```
-Horkos.html         · entry point
-styles.css          · theme tokens, panels, feed, modal, light + dark
-components.jsx      · React components (topbar, sidebar, feed, modal, ...)
-app.jsx             · root app + state + filters + theme persistence
-tweaks-panel.jsx    · in-page design tweaks (accent, density, scanlines)
-data.js             · mock subject + posts + activity dataset
+Horkos.html               · entry point
+styles.css                · theme tokens, panels, feed, modals, light + dark
+components.jsx            · React components (topbar, sidebar, feed, modal, ...)
+app.jsx                   · root app + admin gate + state + theme persistence
+tweaks-panel.jsx          · in-page design tweaks (accent, density, scanlines)
+edit-modals.jsx           · admin edit modals (subject + statement)
+data.js                   · hardcoded UI data for non-live panels
+supabase.js               · live data layer (window.db)
+config.js                 · Supabase URL + publishable key (safe to commit)
+supabase/migrations/      · DB schema + seeds
 ```
 
 ---
