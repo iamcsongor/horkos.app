@@ -90,9 +90,13 @@
     // newest *real* posts surface at the top of the ledger. Rows
     // without a published_at fall back to captured_at as a secondary
     // key so legacy / ingestion-time-only rows still order sensibly.
+    // The TICKER view shows posts across all subjects, so we always
+    // embed the linked subject. The FEED view doesn't actually need it
+    // (it already knows the active subject) but the overhead per row
+    // is a handful of fields — not worth the branching.
     let q = sb
       .from("statements")
-      .select("*, statement_media(*)")
+      .select("*, statement_media(*), subjects(id,code,name,portrait_path,portrait_is_url)")
       .order("published_at", { ascending: false, nullsFirst: false })
       .order("captured_at",  { ascending: false })
       .limit(limit);
@@ -113,9 +117,24 @@
       ...m,
       url: publicUrl(MEDIA_BUCKET, m.storage_path),
     }));
+    // Resolve the embedded subject (if any) into a UI-shaped object with
+    // a usable portrait URL. The TICKER view consumes this; FEED ignores
+    // it (the SubjectCard up top already knows everything).
+    const subjEmbed = s.subjects && !Array.isArray(s.subjects) ? s.subjects : null;
+    const subject_info = subjEmbed ? {
+      id:    subjEmbed.id,
+      code:  subjEmbed.code,
+      name:  subjEmbed.name,
+      portrait_url: subjEmbed.portrait_path
+        ? (subjEmbed.portrait_is_url
+            ? subjEmbed.portrait_path
+            : publicUrl(PORTRAITS_BUCKET, subjEmbed.portrait_path))
+        : null,
+    } : null;
     return {
       ...s,
       media,
+      subject_info,
       // UI-shape aliases for components that expect the old field names:
       id: s.code || s.id,
       _uuid: s.id,

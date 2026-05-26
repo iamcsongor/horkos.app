@@ -43,7 +43,9 @@ function App() {
   const tabFromHash = (h) => {
     const v = (h || "").replace(/^#/, "").toUpperCase();
     if (!v || v === "HOME") return "HOME";
-    if (["FEED","TIMELINE","ANALYSIS","NETWORK","WATCHLIST"].includes(v)) return v;
+    if (["FEED","TICKER","ANALYSIS","NETWORK","WATCHLIST"].includes(v)) return v;
+    // Legacy hash redirect: old #timeline links should land on the ticker.
+    if (v === "TIMELINE") return "TICKER";
     return "HOME";
   };
   const [tab, setTab] = appUseState(() => tabFromHash(location.hash));
@@ -258,6 +260,29 @@ function App() {
           <TopBar tab={tab} setTab={setTab} syncTime={syncTime} theme={theme} setTheme={setTheme} adminMode={adminMode} />
           <HomePage theme={theme} setTheme={setTheme} />
         </div>
+      </>
+    );
+  }
+
+  // TICKER page is cross-subject — it self-manages its own fetch loop
+  // and doesn't need the sidebar or the right-hand analysis column.
+  // Pop-outs still go through the shared PostModal we already render
+  // at the bottom of the tree.
+  if (tab === "TICKER") {
+    return (
+      <>
+        <div className="app app-ticker">
+          <TopBar tab={tab} setTab={setTab} syncTime={syncTime} theme={theme} setTheme={setTheme} adminMode={adminMode} />
+          <TickerView onOpen={(p) => setModalPost(p)} />
+        </div>
+        {modalPost && (
+          <PostModal
+            post={modalPost}
+            onClose={() => setModalPost(null)}
+            onEdit={(p) => { setModalPost(null); setEditingStatement(p); }}
+            adminMode={adminMode}
+          />
+        )}
       </>
     );
   }

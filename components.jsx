@@ -45,7 +45,7 @@ const TopBar = ({ tab, setTab, syncTime, theme, setTheme, adminMode }) => (
       </div>
     </div>
     <nav>
-      {["HOME", "FEED", "TIMELINE", "ANALYSIS", "NETWORK", "WATCHLIST"].map(t => (
+      {["HOME", "FEED", "TICKER", "ANALYSIS", "NETWORK", "WATCHLIST"].map(t => (
         <a
           key={t}
           className={tab === t ? "active" : ""}
@@ -914,6 +914,152 @@ const PostRow = ({ post, index, expanded, onToggle, onOpen, onEdit, adminMode })
   );
 };
 
+// ── Relative time formatter for the ticker ────────────────────────────
+// Gives the running-ticker feel ("2m AGO") for fresh posts, falls back
+// to absolute dates once an entry's more than a week old.
+const formatRelative = (when) => {
+  if (!when) return "—";
+  const d = when instanceof Date ? when : new Date(when);
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 30)         return "JUST NOW";
+  if (diff < 60)         return `${Math.floor(diff)}s AGO`;
+  if (diff < 3600)       return `${Math.floor(diff / 60)}m AGO`;
+  if (diff < 86400)      return `${Math.floor(diff / 3600)}h AGO`;
+  if (diff < 86400 * 7)  return `${Math.floor(diff / 86400)}d AGO`;
+  return d.toISOString().slice(0, 10);
+};
+
+// ── Ticker row (cross-subject, compact) ───────────────────────────────
+const TickerRow = ({ post, onOpen }) => {
+  const mtype = post.media_kind || post.media || "text";
+  const r     = post.reactions || {};
+  const subj  = post.subject_info;
+  const when  = post.published_at || post.captured_at;
+  return (
+    <div className="ticker-row" onClick={() => onOpen(post)} role="button" tabIndex={0}
+         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(post); } }}>
+      <div className="t-time" title={when || ""}>{formatRelative(when)}</div>
+      <div className="t-subject">
+        {subj?.portrait_url
+          ? <img src={subj.portrait_url} alt="" className="t-portrait" />
+          : <div className="t-portrait t-portrait-empty">?</div>}
+        <div className="t-subject-text">
+          <div className="t-subject-name">{subj?.name || "—"}</div>
+          <div className="t-subject-code dim">{subj?.code || ""}</div>
+        </div>
+      </div>
+      <div className="t-src">
+        <span className="src-mark">{post.source_code}</span>
+        <span>{post.source_code}</span>
+      </div>
+      <div className={`t-mtype mtype ${mtype}`}><Icon k={mtype} /></div>
+      <div className="t-summary">{post.summary || <span className="dim">(no summary)</span>}</div>
+      <div className="t-engage engage">
+        <span className="e-item" title={`${(r.likes || 0).toLocaleString()} likes`}>
+          <Icon k="heart" /> {fmtN(r.likes)}
+        </span>
+        <span className="e-item" title={`${(r.comments || 0).toLocaleString()} comments`}>
+          <Icon k="comment" /> {fmtN(r.comments)}
+        </span>
+        <span className="e-item" title={`${(r.shares || 0).toLocaleString()} shares`}>
+          <Icon k="share" /> {fmtN(r.shares)}
+        </span>
+      </div>
+      <button
+        type="button"
+        className="iconbtn t-popout"
+        onClick={(e) => { e.stopPropagation(); onOpen(post); }}
+        title="Pop out"
+        aria-label="Pop out post"
+      >
+        <Icon k="popout" />
+      </button>
+    </div>
+  );
+};
+
+// ── TickerView (running, cross-subject, descending by published_at) ───
+// Self-contained page-level view. Polls Supabase every 30s and shows
+// the newest 100 posts across every subject in the archive.
+const TickerView = ({ onOpen }) => {
+  const [posts, setPosts]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
+  const [lastSync, setLastSync] = useState(null);
+  // forceTick advances every 15s purely to re-render the relative
+  // timestamps ("2m AGO" → "3m AGO") without re-fetching.
+  const [, setTick] = useState(0);
+
+  const refresh = async () => {
+    try {
+      const ps = await window.db.listStatements({ limit: 100 });
+      setPosts(ps);
+      setLastSync(new Date());
+      setError(null);
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+    const fetchTimer = setInterval(refresh, 30_000);
+    const tickTimer  = setInterval(() => setTick(t => t + 1), 15_000);
+    return () => { clearInterval(fetchTimer); clearInterval(tickTimer); };
+  }, []);
+
+  return (
+    <main className="ticker-main">
+      <section className="panel corners ticker-panel">
+        <div className="panel-head">
+          <div className="left">
+            <span className="ticker-live-dot" /> TICKER · LIVE
+            <span className="dim" style={{marginLeft: 8}}>
+              {posts.length} POST{posts.length === 1 ? "" : "S"} · ALL SUBJECTS · DESC
+            </span>
+          </div>
+          <div className="right">
+            <span className="dim">
+              LAST SYNC {lastSync ? formatRelative(lastSync) : (loading ? "…" : "—")}
+            </span>
+            <button className="chip" onClick={refresh} title="Refresh now">
+              REFRESH
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="ticker-error">▌ ERROR · {error}</div>
+        )}
+
+        <div className="ticker-list">
+          {posts.length === 0 && !loading && !error && (
+            <div className="ticker-empty dim">
+              NO POSTS IN THE ARCHIVE YET · WATCHING<span className="caret"></span>
+            </div>
+          )}
+          {posts.length === 0 && loading && (
+            <div className="ticker-empty dim">
+              BOOTSTRAPPING<span className="caret"></span>
+            </div>
+          )}
+          {posts.map(p => (
+            <TickerRow key={p._uuid} post={p} onOpen={onOpen} />
+          ))}
+        </div>
+
+        <div className="ticker-foot">
+          <span className="dim">AUTO-REFRESH · 30s</span>
+          <span className="dim">NEWEST FIRST · BY PUBLISH TIME</span>
+          <span className="amber">HORKOS // OATH-KEEPER</span>
+        </div>
+      </section>
+    </main>
+  );
+};
+
 // ── Modal (read-only post pop-out) ────────────────────────────────────
 const PostModal = ({ post, onClose, onEdit, adminMode }) => {
   useEffect(() => {
@@ -1087,5 +1233,6 @@ const RightBar = () => {
 
 // expose
 Object.assign(window, {
-  TopBar, SideBar, SubjectCard, Heatmap, StatGrid, Toolbar, PostRow, PostModal, RightBar, Icon
+  TopBar, SideBar, SubjectCard, Heatmap, StatGrid, Toolbar, PostRow, PostModal, RightBar, Icon,
+  TickerView, TickerRow, formatRelative,
 });
