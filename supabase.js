@@ -61,7 +61,7 @@
     "id", "code", "name", "codename", "role", "district", "country",
     "born", "followers", "indexed_since", "last_sync_at", "watchlist_rank",
     "archive_integrity", "portrait_path", "portrait_is_url", "total_lawsuits",
-    "socials", "created_by",
+    "socials", "party", "bio", "created_by",
   ];
 
   async function upsertSubject(payload) {
@@ -96,7 +96,7 @@
     // is a handful of fields — not worth the branching.
     let q = sb
       .from("statements")
-      .select("*, statement_media(*), subjects(id,code,name,portrait_path,portrait_is_url)")
+      .select("*, statement_media(*), subjects(id,code,name,portrait_path,portrait_is_url,party,bio)")
       .order("published_at", { ascending: false, nullsFirst: false })
       .order("captured_at",  { ascending: false })
       .limit(limit);
@@ -125,6 +125,8 @@
       id:    subjEmbed.id,
       code:  subjEmbed.code,
       name:  subjEmbed.name,
+      party: subjEmbed.party,
+      bio:   subjEmbed.bio,
       portrait_url: subjEmbed.portrait_path
         ? (subjEmbed.portrait_is_url
             ? subjEmbed.portrait_path

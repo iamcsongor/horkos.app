@@ -219,7 +219,14 @@ const SubjectCard = ({ subject, totals, adminMode, onEdit, onPortraitUpload }) =
         <div className="info">
           <div className="codename">SUBJECT // {subject.codename || subject.code}</div>
           <div className="name">{subject.name}<span className="caret"></span></div>
-          <div className="role">{subject.role || "—"}{subject.district ? ` · ${subject.district}` : ""}</div>
+          <div className="role">
+            {subject.role || "—"}
+            {subject.party && (
+              <span className="party-chip" data-party={subject.party}>{subject.party}</span>
+            )}
+            {subject.district ? <span className="role-district"> · {subject.district}</span> : null}
+          </div>
+          {subject.bio && <div className="bio">{subject.bio}</div>}
           <div className="meta">
             <div><span className="k">BORN</span><span className="v">{subject.born || "—"}</span></div>
             <div><span className="k">LAST SYNC</span><span className="v">{subject.last_sync_at ? new Date(subject.last_sync_at).toISOString().slice(0,16).replace("T"," ") : "—"}</span></div>
@@ -979,7 +986,12 @@ const TickerRow = ({ post, onOpen }) => {
           : <div className="t-portrait t-portrait-empty">?</div>}
         <div className="t-subject-text">
           <div className="t-subject-name">{subj?.name || "—"}</div>
-          <div className="t-subject-code dim">{subj?.code || ""}</div>
+          <div className="t-subject-meta">
+            {subj?.party && (
+              <span className="party-chip" data-party={subj.party}>{subj.party}</span>
+            )}
+            <span className="dim t-subject-code">{subj?.code || ""}</span>
+          </div>
         </div>
       </div>
       <div className="t-src">

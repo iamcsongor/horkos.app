@@ -75,8 +75,10 @@ function SubjectEditModal({ subject, onClose, onSaved }) {
     name:              subject?.name || "",
     codename:          subject?.codename || "",
     role:              subject?.role || "",
+    party:             subject?.party || "",
     district:          subject?.district || "",
     country:           subject?.country || "HU",
+    bio:               subject?.bio || "",
     born:              subject?.born || "",
     followers:         subject?.followers ?? "",
     indexed_since:     subject?.indexed_since || new Date().toISOString().slice(0,10),
@@ -200,11 +202,22 @@ function SubjectEditModal({ subject, onClose, onSaved }) {
           <Field label="ROLE">
             <input value={form.role}     onChange={e => set("role", e.target.value)} />
           </Field>
+          <Field label="PARTY" hint="e.g. TISZA · Fidesz · Mi Hazánk · Independent">
+            <input value={form.party}    onChange={e => set("party", e.target.value)} />
+          </Field>
           <Field label="DISTRICT">
             <input value={form.district} onChange={e => set("district", e.target.value)} />
           </Field>
           <Field label="COUNTRY" hint="ISO-3166 alpha-2">
             <input value={form.country}  onChange={e => set("country", e.target.value.toUpperCase().slice(0,2))} />
+          </Field>
+          <Field label="BIO" hint="One-line summary shown in the dossier + ticker">
+            <textarea
+              value={form.bio}
+              onChange={e => set("bio", e.target.value)}
+              rows={3}
+              style={{resize: "vertical", minHeight: 60, fontFamily: "inherit", fontSize: 12, lineHeight: 1.4}}
+            />
           </Field>
         </div>
 

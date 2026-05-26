@@ -1367,6 +1367,105 @@ body.theme-light .subject .stack .big { color: var(--amber-d); }
 
 
 /* ════════════════════════════════════════════════════════════════════════
+   Party chip + bio
+   ──────────────────────────────────────────────────────────────────────
+   Tiny pill used in the dossier (next to role) and the ticker subject
+   mini-card. Color keyed off the party name via [data-party="…"]; the
+   default is neutral so any new party label still renders cleanly even
+   without a dedicated rule.
+   ═══════════════════════════════════════════════════════════════════════ */
+.party-chip {
+  display: inline-block;
+  padding: 1px 7px;
+  margin-left: 8px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--bg-2);
+  color: var(--fg-2);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.party-chip[data-party="TISZA"] {
+  color: var(--amber);
+  border-color: oklch(0.62 0.14 75 / 0.55);
+  background: oklch(0.62 0.14 75 / 0.10);
+}
+.party-chip[data-party="Fidesz"] {
+  color: oklch(0.80 0.16 25);
+  border-color: oklch(0.55 0.20 25 / 0.55);
+  background: oklch(0.55 0.20 25 / 0.10);
+}
+.party-chip[data-party="Mi Hazánk"] {
+  color: oklch(0.78 0.14 145);
+  border-color: oklch(0.55 0.16 145 / 0.55);
+  background: oklch(0.55 0.16 145 / 0.10);
+}
+.party-chip[data-party="Independent"] {
+  color: var(--fg-3);
+  border-color: var(--line-2);
+  background: transparent;
+}
+
+/* Bio line under the role in the dossier card. */
+.subject .info .bio {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fg-3);
+  margin: 6px 0 4px;
+  max-width: 620px;
+  font-family: var(--sans, inherit);
+}
+.subject .info .role-district {
+  color: var(--fg-3);
+}
+
+/* Light theme tweaks. */
+body.theme-light .party-chip {
+  background: oklch(0.94 0.005 75);
+}
+body.theme-light .party-chip[data-party="TISZA"] {
+  background: oklch(0.94 0.06 70 / 0.6);
+}
+body.theme-light .party-chip[data-party="Fidesz"] {
+  color: oklch(0.40 0.20 25);
+  background: oklch(0.94 0.07 25 / 0.6);
+}
+body.theme-light .party-chip[data-party="Mi Hazánk"] {
+  color: oklch(0.40 0.16 145);
+  background: oklch(0.94 0.07 145 / 0.5);
+}
+
+/* Ticker subject meta — party + code line replacing the old code-only
+   sub-line. The chip has its own left margin; reset it inside the
+   ticker so the layout stays tight. */
+.t-subject-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.t-subject-meta .party-chip {
+  margin-left: 0;
+  padding: 0 5px;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+.t-subject-meta .t-subject-code {
+  letter-spacing: 0.14em;
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
    Interactive heatmap (per-subject FEED tab)
    ──────────────────────────────────────────────────────────────────────
    The base .heatmap / .cell rules above still apply; .heatmap-lg upgrades
